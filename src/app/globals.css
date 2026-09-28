@@ -1,0 +1,6 @@
+/* Each screen injects its own design styles (see src/screens). This only resets the document. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}

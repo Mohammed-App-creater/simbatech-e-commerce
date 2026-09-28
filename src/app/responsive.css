@@ -1,0 +1,625 @@
+/*
+ * Responsive layer over the generated screens.
+ *
+ * The screens in src/screens keep the design's inline styles verbatim, which is why the
+ * rules here use `!important` and the data-* hooks the converter adds (data-sec, data-cols,
+ * data-span, data-abs, data-banner, data-w). Nothing in this file changes the page at
+ * 1440px and above; it only re-flows the layout as the viewport gets narrower.
+ */
+
+:root {
+  /* Content stops growing at 1680px; beyond that the gutters absorb the extra width. */
+  --gutter: max(64px, calc((100% - 1552px) / 2));
+}
+
+html {
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* Horizontal-scroll rows (category nav, tab lists) */
+nav[aria-label="Departments"],
+[role="tablist"] {
+  scrollbar-width: none;
+}
+
+nav[aria-label="Departments"]::-webkit-scrollbar,
+[role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── ≤ 1280px ──────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  :root {
+    --gutter: 48px;
+  }
+
+  nav[aria-label="Departments"] {
+    gap: 22px !important;
+  }
+}
+
+/* ── ≤ 1024px: tablet ──────────────────────────────────────── */
+@media (max-width: 1024px) {
+  :root {
+    --gutter: 32px;
+  }
+
+  /* Header: search drops to its own row */
+  header {
+    flex-wrap: wrap;
+    height: auto !important;
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+    row-gap: 12px;
+  }
+
+  header > form[role="search"] {
+    order: 10;
+    flex: 1 1 100% !important;
+  }
+
+  header > a[aria-label="Simbatech home"] + button {
+    margin-left: auto;
+  }
+
+  /* Category nav scrolls sideways instead of wrapping */
+  nav[aria-label="Departments"] {
+    overflow-x: auto;
+    margin: 0 !important;
+    padding: 0 var(--gutter);
+    gap: 22px !important;
+  }
+
+  nav[aria-label="Departments"] > * {
+    flex-shrink: 0;
+  }
+
+  nav[aria-label="Departments"] > div {
+    flex: 0 0 4px !important;
+  }
+
+  /* Mega menu sits under the taller header */
+  #mega {
+    top: 190px !important;
+    height: auto !important;
+    max-height: calc(100vh - 210px);
+  }
+
+  #mega > a {
+    display: none !important;
+  }
+
+  [data-cols="8"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  [data-cols="6"],
+  [data-cols="5"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Hero / offers mosaics: the tall card goes full width, the small ones pair up under it */
+  [data-rows] {
+    grid-template-rows: auto !important;
+  }
+
+  [data-rows] > [data-rowspan="2"] {
+    grid-column: span 12 !important;
+    grid-row: auto !important;
+    min-height: 460px;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] {
+    min-height: 540px;
+  }
+
+  [data-rows] > [data-span]:not([data-rowspan]) {
+    grid-column: span 6 !important;
+    min-height: 240px;
+  }
+
+  /* Product page: gallery above the info panel */
+  [data-sec="product-hero"][data-row] {
+    flex-direction: column !important;
+  }
+
+  [data-sec="product-hero"][data-row] > * {
+    width: auto !important;
+  }
+
+  [data-sec="product-hero"] [aria-label="Product images"] {
+    width: auto !important;
+  }
+
+  /* Shop: narrower filter column, two product columns */
+  [data-row] > aside {
+    width: 240px !important;
+  }
+
+  [data-row] [data-cols="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* 12-column page layouts: side columns get a bit more room */
+  [data-cols="12"] > [data-span="3"] {
+    grid-column: span 4 !important;
+  }
+
+  [data-cols="12"] > [data-span="9"] {
+    grid-column: span 8 !important;
+  }
+
+  [data-cols="12"] > [data-span="9"] > [data-cols="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── ≤ 768px: mobile ───────────────────────────────────────── */
+@media (max-width: 768px) {
+  :root {
+    --gutter: 20px;
+  }
+
+  /* Utility bar */
+  [data-sec="utility-bar"] > nav {
+    display: none !important;
+  }
+
+  [data-sec="utility-bar"] > div > span {
+    display: none !important;
+  }
+
+  /* Header: icon-only controls */
+  header > button {
+    padding: 0 14px !important;
+    gap: 0 !important;
+    font-size: 0 !important;
+  }
+
+  header > button > svg:last-child {
+    display: none !important;
+  }
+
+  header > a > span:last-child:not(:first-child) {
+    display: none !important;
+  }
+
+  header > a[href="/cart"] {
+    padding: 0 6px !important;
+  }
+
+  header > form[role="search"] button[type="submit"] {
+    padding: 0 14px !important;
+    gap: 0 !important;
+    font-size: 0 !important;
+  }
+
+  header > a[aria-label="Simbatech home"] > img {
+    height: 44px !important;
+  }
+
+  /* Minimal (checkout / confirmation) header */
+  header > a[aria-label="Simbatech home"][style*="width:300px"] {
+    width: auto !important;
+  }
+
+  header ol[aria-label="Checkout progress"] {
+    order: 10;
+    flex-basis: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  /* Grids */
+  [data-cols="12"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: none !important;
+  }
+
+  [data-cols="12"] > *,
+  [data-cols="12"] > [data-span],
+  [data-cols][data-rows] > [data-span] {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  /* Sign in: the brand panel should not stretch to fill the viewport on phones */
+  [data-cols="2"][style*="flex-grow:1"] {
+    flex-grow: 0 !important;
+  }
+
+  [data-cols="12"] > [data-span="9"] > [data-cols="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [data-cols="8"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  [data-cols="6"],
+  [data-cols="5"],
+  [data-cols="4"],
+  [data-cols="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Table-like rows (account orders table, accordion rows) */
+  [data-cols="t6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    height: auto !important;
+    padding: 14px 20px !important;
+    gap: 6px 16px;
+  }
+
+  [data-cols="t6"]:first-child {
+    display: none !important;
+  }
+
+  [data-cols="t5"] {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px 12px !important;
+  }
+
+  /* Sidebar / gallery rows stack */
+  [data-row] {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  [data-row] > *,
+  [data-row] > aside {
+    width: auto !important;
+    flex-shrink: 1 !important;
+  }
+
+  [aria-label="Product images"] {
+    height: 420px !important;
+  }
+
+  [aria-label="Product images"] .rv {
+    zoom: 1.5 !important;
+  }
+
+  [data-row] [data-cols="3"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [data-rows] > * {
+    min-height: 0 !important;
+  }
+
+  [style*="position:sticky"] {
+    position: static !important;
+  }
+
+  /* Banners: absolutely positioned text + art re-flow as text on the left, art on the right,
+     wrapping to a column when there is no room. */
+  [data-abs="deco"] {
+    display: none !important;
+  }
+
+  [data-banner] {
+    height: auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px 20px !important;
+    padding: 24px 22px !important;
+  }
+
+  [data-banner] > [data-abs="text"],
+  [data-banner] > [data-abs="misc"] {
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  [data-banner] > [data-abs="text"] {
+    flex: 1 1 220px;
+  }
+
+  [data-banner] > [data-abs="misc"] {
+    flex: 0 0 100%;
+  }
+
+  [data-banner] > [data-abs="art"] {
+    position: static !important;
+    inset: auto !important;
+    flex: 0 0 auto;
+    margin: 0 !important;
+    zoom: 0.75 !important;
+    transform: none !important;
+  }
+
+  [data-banner] > [data-abs="art"] ~ [data-abs="art"] {
+    display: none !important;
+  }
+
+  [data-banner] [data-abs="text"] > div {
+    flex-wrap: wrap;
+  }
+
+  [data-banner] a,
+  [data-banner] button {
+    white-space: nowrap;
+  }
+
+  /* Home hero: a single column with the headline first, art, then the price chip and controls */
+  [data-sec="hero"] {
+    padding-top: 16px !important;
+  }
+
+  [data-sec="hero"] > [data-banner] {
+    border-radius: 28px !important;
+  }
+
+  [data-sec="hero"] h1 {
+    min-height: 0 !important;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 26px 22px !important;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] > [data-abs="text"] {
+    order: 1;
+    flex: 0 0 auto;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] > [data-abs="art"] {
+    order: 2;
+    align-self: center;
+    zoom: 1 !important;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] > a[data-abs="misc"] {
+    order: 3;
+    flex: 0 0 auto;
+    align-self: flex-start;
+  }
+
+  [data-sec="hero"] > [data-rowspan="2"] > div[data-abs="misc"] {
+    order: 4;
+    flex: 0 0 auto;
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  /* Section title rows: keep links on one line and let the title/countdown group wrap */
+  [style*="justify-content:space-between"] > a {
+    white-space: nowrap;
+  }
+
+  [style*="justify-content:space-between"] > div[style*="align-items:center"] {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  [style*="font-size:28px"] {
+    white-space: nowrap;
+  }
+
+  /* Trust strip */
+  [data-sec="trust-strip"] > div {
+    height: auto !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 6px 0;
+  }
+
+  [data-sec="trust-strip"] > div > div {
+    padding: 14px 18px !important;
+    border-left: none !important;
+  }
+
+  /* Big padded containers */
+  [style*="padding:40px"][style*="border-radius:36px"] {
+    padding: 20px !important;
+    border-radius: 24px !important;
+  }
+
+  [style*="padding:56px"][style*="border-radius:40px"] {
+    padding: 28px 20px !important;
+    border-radius: 28px !important;
+  }
+
+  [style*="padding:56px"][style*="border-radius:40px"] > div:last-child {
+    padding: 20px !important;
+  }
+
+  [style*="padding:96px"] {
+    padding-top: 56px !important;
+  }
+
+  /* Section headers wrap instead of squeezing */
+  section > div[style*="justify-content:space-between"] {
+    flex-wrap: wrap;
+    gap: 12px 20px;
+  }
+
+  [role="tablist"] {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  [role="tablist"] > * {
+    flex-shrink: 0;
+  }
+
+  /* Fixed-width blocks go fluid */
+  [data-w] {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  /* Mega menu becomes a full-screen sheet */
+  [data-sec="mega-menu"] {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 30 !important;
+  }
+
+  #mega {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none;
+    border-radius: 0 !important;
+    flex-direction: column;
+    overflow-y: auto !important;
+    z-index: 31 !important;
+  }
+
+  #mega > ul {
+    width: auto !important;
+    flex-direction: row !important;
+    overflow-x: auto;
+    padding: 12px var(--gutter) !important;
+    scrollbar-width: none;
+  }
+
+  #mega > ul > li {
+    flex-shrink: 0;
+  }
+
+  #mega > ul button {
+    height: 40px !important;
+    padding: 0 12px !important;
+  }
+
+  #mega > div {
+    padding: 20px var(--gutter) 32px !important;
+  }
+
+  #mega > div > div:last-child {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Typography */
+  [style*="font-size:96px"] {
+    font-size: clamp(56px, 16vw, 96px) !important;
+  }
+
+  [style*="font-size:58px"] {
+    font-size: clamp(34px, 9.5vw, 58px) !important;
+  }
+
+  [style*="font-size:52px"] {
+    font-size: clamp(32px, 8.5vw, 52px) !important;
+  }
+
+  [style*="font-size:46px"] {
+    font-size: clamp(30px, 8vw, 46px) !important;
+  }
+
+  [style*="font-size:44px"] {
+    font-size: clamp(28px, 7.5vw, 44px) !important;
+  }
+
+  [style*="font-size:34px"] {
+    font-size: clamp(24px, 6.5vw, 34px) !important;
+  }
+
+  [style*="font-size:32px"] {
+    font-size: clamp(24px, 6vw, 32px) !important;
+  }
+
+  [style*="font-size:30px"] {
+    font-size: clamp(22px, 6vw, 30px) !important;
+  }
+
+  /* Sign in: brand panel stacks above the form */
+  [data-cols="2"][style*="flex-grow:1"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [data-cols="2"][style*="flex-grow:1"] > div:last-child {
+    padding: 24px var(--gutter) 48px;
+  }
+
+  [data-cols="2"][style*="flex-grow:1"] > div:last-child > div {
+    margin-top: 0 !important;
+    padding: 24px 20px !important;
+  }
+}
+
+/* ── ≤ 480px: phones ───────────────────────────────────────── */
+@media (max-width: 480px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  header {
+    column-gap: 10px !important;
+  }
+
+  header > a[aria-label="Simbatech home"] > img {
+    height: 40px !important;
+  }
+
+  [data-cols="8"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  [data-cols="2"]:not([style*="flex-grow:1"]),
+  [data-sec="rental-bundles"] [data-cols="4"],
+  [data-sec="trust-strip"] > div {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [data-cols] > * > a[style*="height:"] > div[style*="zoom:"],
+  [data-cols] > * > div[style*="height:"] > div[style*="zoom:"] {
+    zoom: 0.62 !important;
+  }
+
+  [data-cols="4"] > *,
+  [data-cols="5"] > * {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  [data-banner] {
+    padding: 22px 18px !important;
+  }
+
+  /* Cart line items: smaller thumbnail, price/qty row wraps underneath */
+  [style*="display:flex"]:has(> a[style*="width:120px"][style*="height:120px"]) {
+    flex-wrap: wrap;
+  }
+
+  a[style*="width:120px"][style*="height:120px"] {
+    width: 88px !important;
+    height: 88px !important;
+  }
+
+  [style*="display:flex"]:has(> a[style*="width:120px"]) > div:last-child {
+    flex: 0 0 100% !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  [aria-label="Product images"] {
+    height: 340px !important;
+    border-radius: 24px !important;
+  }
+
+  [aria-label="Product images"] .rv {
+    zoom: 1.2 !important;
+  }
+}
