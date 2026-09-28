@@ -199,7 +199,7 @@ var RECENT = ["p3", "p5", "p10", "p2", "p8"];
 var PMAX = 150000;
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -315,7 +315,7 @@ class Component extends React.Component {
       var tag = p.rent ? (p.rentOnly ? "For rent" : "Buy or rent") : p.was ? "Sale" : "Buy";
       var sub;
       if (showRent)
-        sub = per.id !== "day" ? fmt(p.rent) + "/day × " + per.mult + " days" : p.rentOnly ? "Deposit KES [X]" : "or buy " + fmt(p.buy);
+        sub = per.id !== "day" ? fmt(p.rent) + "/day × " + per.mult + " days" : p.rentOnly ? "Deposit ETB [X]" : "or buy " + fmt(p.buy);
       else
         sub = p.rent
           ? "or rent " + fmt(p.rent) + "/day"
@@ -704,7 +704,7 @@ export default class ShopScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over KES [X]
+                Free delivery on orders over ETB [X]
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
@@ -1401,6 +1401,7 @@ export default class ShopScreen extends Component {
           </section>
           <section
             style={{ padding: "16px var(--gutter) 0", display: "flex", gap: "40px", alignItems: "flex-start" }}
+            data-row
             data-sec="sidebar-grid"
           >
             <aside
@@ -1489,7 +1490,7 @@ export default class ShopScreen extends Component {
                     width: "100%",
                   }}
                 >
-                  Price (KES)
+                  Price (ETB)
                 </legend>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <label style={{ flex: "1", display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", color: "#5E6470" }}>
@@ -1598,8 +1599,8 @@ export default class ShopScreen extends Component {
                   />{" "}
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#5E6470" }}>
-                  <span>KES 0</span>
-                  <span>KES 150,000+</span>
+                  <span>ETB 0</span>
+                  <span>ETB 150,000+</span>
                 </div>
               </fieldset>
               <fieldset
@@ -1658,7 +1659,7 @@ export default class ShopScreen extends Component {
                   ))}
                 </div>
                 <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
-                  Changes how rental prices are shown. Refundable deposit KES [X] per item.
+                  Changes how rental prices are shown. Refundable deposit ETB [X] per item.
                 </span>
               </fieldset>
               <fieldset
@@ -2124,7 +2125,7 @@ export default class ShopScreen extends Component {
                                 color: "#8FD19A",
                               }}
                             >
-                              KES 6,500 / day
+                              ETB 6,500 / day
                             </span>
                           </span>
                           <span style={{ fontSize: "15px", color: "#D5E9D8" }}>

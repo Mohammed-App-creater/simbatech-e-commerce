@@ -77,7 +77,8 @@ function scrollTop() {
 function Payments() {
   return (
     <div className="sf-pay" aria-label="Accepted payment methods">
-      <span className="sf-pay-mpesa">M-PESA</span>
+      <span className="sf-pay-telebirr">TELEBIRR</span>
+      <span className="sf-pay-cbe">CBE BIRR</span>
       <span className="sf-pay-visa">VISA</span>
       <span className="sf-pay-mc" role="img" aria-label="Mastercard">
         <i />
@@ -209,8 +210,8 @@ export default function SiteFooter({ compact = false }) {
           <div className="sf-contact">
             <h3>Get in touch</h3>
             <span>[ADDRESS]</span>
-            <a href="tel:+254000000000">[PHONE]</a>
-            <a href="mailto:hello@simbatech.co.ke">hello@simbatech.co.ke</a>
+            <a href="tel:+251900000000">[PHONE]</a>
+            <a href="mailto:hello@simbatech.et">hello@simbatech.et</a>
             <span className="sf-hours">Mon–Sat, 8am–7pm</span>
           </div>
         </div>
@@ -234,7 +235,7 @@ export default function SiteFooter({ compact = false }) {
         <span>© {YEAR} Simbatech. All rights reserved.</span>
         <Legal />
         <div className="sf-bottom-right">
-          <span className="sf-locale">Kenya · English · KES</span>
+          <span className="sf-locale">Ethiopia · English · ETB</span>
           <Payments />
         </div>
       </div>

@@ -18,7 +18,7 @@ var DURS = [
 var ADDONS = [
   { id: "battery", label: "Extra battery", perDay: 300, note: "Shoot all day without recharging" },
   { id: "lens", label: "Spare lens", perDay: 900, note: "[LENS MODEL]" },
-  { id: "cover", label: "Damage cover", perDay: 200, note: "Lowers your excess to KES [X]" },
+  { id: "cover", label: "Damage cover", perDay: 200, note: "Lowers your excess to ETB [X]" },
 ];
 var VARIANTS = [
   { id: "body", label: "Body only", extra: 0 },
@@ -51,9 +51,9 @@ var SPECS = [
   ["Warranty", "[TERM]"],
 ];
 var TERMS = [
-  { title: "Deposit", body: "A refundable deposit of KES [X] is held when you book and released within [N] days of collection." },
+  { title: "Deposit", body: "A refundable deposit of ETB [X] is held when you book and released within [N] days of collection." },
   { title: "Extending", body: "Need it longer? Extend from your account before the return date, at the same daily rate." },
-  { title: "Damage", body: "[DAMAGE POLICY]. Add damage cover to lower your excess to KES [X]." },
+  { title: "Damage", body: "[DAMAGE POLICY]. Add damage cover to lower your excess to ETB [X]." },
   { title: "Delivery & collection", body: "We deliver on your start date and collect on the return date, [TIME WINDOW]." },
 ];
 var DIST = [
@@ -92,7 +92,7 @@ var WDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -287,7 +287,7 @@ class Component extends React.Component {
     var leftMin = Math.max(0, Math.floor((cutoff - nowD) / 60000));
     var fulfilSel = s.fulfil || "delivery";
     var fulfil = [
-      { id: "delivery", label: "Home delivery", sub: "Free over KES [X]" },
+      { id: "delivery", label: "Home delivery", sub: "Free over ETB [X]" },
       { id: "pickup", label: "Pick up", sub: "[STORE] · free" },
     ].map(function (f) {
       var on = f.id === fulfilSel;
@@ -645,7 +645,7 @@ export default class ProductScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over KES [X]
+                Free delivery on orders over ETB [X]
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
@@ -1128,6 +1128,7 @@ export default class ProductScreen extends Component {
           </nav>
           <section
             style={{ padding: "20px var(--gutter) 0", display: "flex", gap: "56px", alignItems: "flex-start" }}
+            data-row
             data-sec="product-hero"
           >
             <div
@@ -1147,7 +1148,6 @@ export default class ProductScreen extends Component {
                   background: vals.shot.bg,
                   transition: "background-color .4s ease",
                 }}
-                data-banner
                 data-w
               >
                 {" "}
@@ -1175,7 +1175,7 @@ export default class ProductScreen extends Component {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  data-abs="text"
+                  data-abs="art"
                 >
                   <div
                     className="rv"
@@ -1319,7 +1319,7 @@ export default class ProductScreen extends Component {
                     alignItems: "center",
                     justifyContent: "space-between",
                   }}
-                  data-abs="text"
+                  data-abs="misc"
                 >
                   <span
                     style={{
@@ -1682,7 +1682,7 @@ export default class ProductScreen extends Component {
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span style={{ fontSize: "14px", fontWeight: "700" }}>Secure payment</span>
-                    <span style={{ fontSize: "12px", color: "#5E6470" }}>M-Pesa or card</span>
+                    <span style={{ fontSize: "12px", color: "#5E6470" }}>Telebirr or card</span>
                   </span>
                 </div>
               </div>
@@ -1805,7 +1805,7 @@ export default class ProductScreen extends Component {
                   }}
                 >
                   <span style={{ fontSize: "17px", fontWeight: "700" }}>Buy it</span>
-                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.buySub }}>KES 139,000</span>
+                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.buySub }}>ETB 139,000</span>
                 </button>
                 <button
                   type="button"
@@ -1828,7 +1828,7 @@ export default class ProductScreen extends Component {
                   }}
                 >
                   <span style={{ fontSize: "17px", fontWeight: "700" }}>Rent it</span>
-                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.rentSub }}>from KES 2,500 / day</span>
+                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.rentSub }}>from ETB 2,500 / day</span>
                 </button>
               </div>
               {vals.isRent ? (
@@ -2014,7 +2014,7 @@ export default class ProductScreen extends Component {
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span style={{ color: "#3A3F4A" }}>Refundable deposit</span>
-                        <span style={{ fontWeight: "600" }}>KES [X]</span>
+                        <span style={{ fontWeight: "600" }}>ETB [X]</span>
                       </div>
                       <div style={{ height: "1px", background: "#E6E4DE" }} />
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -2096,7 +2096,7 @@ export default class ProductScreen extends Component {
                       </span>
                       <span style={{ fontSize: "14px", color: "#3A3F4A" }}>
                         {"or "}
-                        <strong>KES [X]/month</strong>
+                        <strong>ETB [X]/month</strong>
                         {" over [TERM] with instalments · Free delivery"}
                       </span>
                     </div>
@@ -3025,7 +3025,7 @@ export default class ProductScreen extends Component {
                       </span>
                       <span style={{ fontSize: "15px", color: "#5E6470" }}>/ day</span>
                     </span>
-                    <span style={{ fontSize: "13px", color: "#5E6470" }}>Plus refundable deposits, KES [X] each.</span>
+                    <span style={{ fontSize: "13px", color: "#5E6470" }}>Plus refundable deposits, ETB [X] each.</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                     <button

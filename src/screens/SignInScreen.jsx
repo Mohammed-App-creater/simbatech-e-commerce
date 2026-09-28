@@ -320,7 +320,7 @@ export default class SignInScreen extends Component {
                         <path d="M5 12l5 5 9-10" />
                       </svg>
                     </span>
-                    Track orders, extend rentals, pay with M-Pesa
+                    Track orders, extend rentals, pay with Telebirr
                   </li>
                 </ul>
               </div>{" "}
@@ -337,7 +337,7 @@ export default class SignInScreen extends Component {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                data-abs="text"
+                data-abs="art"
                 data-sec="collage"
               >
                 <div style={{ zoom: "0.9", width: "200px", height: "200px" }}>
@@ -357,7 +357,7 @@ export default class SignInScreen extends Component {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                data-abs="misc"
+                data-abs="art"
               >
                 <div style={{ zoom: "0.72", width: "200px", height: "200px" }}>
                   <Render kind={"tent"} />
@@ -376,7 +376,7 @@ export default class SignInScreen extends Component {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                data-abs="misc"
+                data-abs="art"
               >
                 <div style={{ zoom: "0.62", width: "200px", height: "200px" }}>
                   <Render kind={"headphones"} />
@@ -395,7 +395,7 @@ export default class SignInScreen extends Component {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                data-abs="misc"
+                data-abs="art"
               >
                 <div style={{ zoom: "0.62", width: "200px", height: "200px" }}>
                   <Render kind={"drill"} />
@@ -420,7 +420,7 @@ export default class SignInScreen extends Component {
               >
                 <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.15" }}>
                   <span style={{ fontSize: "11px", color: "#5E6470" }}>Canopy Tent 3 × 3 m</span>
-                  <span style={{ fontSize: "13px", fontWeight: "700" }}>KES 3,500 / day</span>
+                  <span style={{ fontSize: "13px", fontWeight: "700" }}>ETB 3,500 / day</span>
                 </span>
                 <span
                   style={{
@@ -591,7 +591,7 @@ export default class SignInScreen extends Component {
                             id="si-id"
                             type="text"
                             autoComplete="username"
-                            placeholder="07XX XXX XXX or you@example.com"
+                            placeholder="09XX XXX XXX or you@example.com"
                             style={{
                               flexGrow: "1",
                               minWidth: "0",
@@ -968,7 +968,7 @@ export default class SignInScreen extends Component {
                                 color: "#3A3F4A",
                               }}
                             >
-                              +254
+                              +251
                             </span>
                             <input
                               id="ca-phone"

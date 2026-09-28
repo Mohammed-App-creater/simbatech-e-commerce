@@ -45,7 +45,7 @@ var UPCOMING = [
     bg: "#E4F2E6",
     cost: 6500 * 2,
     dates: "Sat 10 Oct to Mon 12 Oct · 2 days",
-    costSub: "+ deposit KES [X]",
+    costSub: "+ deposit ETB [X]",
     note: "Delivery and set-up Sat 10 Oct, [TIME]",
     pill: "Upcoming",
     cta1: "Change dates",
@@ -57,7 +57,7 @@ var UPCOMING = [
     bg: "#DDF5EA",
     cost: 1200 * 3,
     dates: "Sat 17 Oct to Tue 20 Oct · 3 days",
-    costSub: "+ deposit KES [X]",
+    costSub: "+ deposit ETB [X]",
     note: "Delivery Sat 17 Oct, [TIME]",
     pill: "Upcoming",
     cta1: "Change dates",
@@ -210,7 +210,7 @@ var NOTIF = [
 ];
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -651,7 +651,7 @@ export default class AccountScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over KES [X]
+                Free delivery on orders over ETB [X]
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
@@ -1779,7 +1779,7 @@ export default class AccountScreen extends Component {
                             letterSpacing: "-0.04em",
                           }}
                         >
-                          KES [X]
+                          ETB [X]
                         </span>
                         <span style={{ fontSize: "13px", color: "#3A3F4A" }} suppressHydrationWarning>
                           {"Across "}
@@ -1986,7 +1986,7 @@ export default class AccountScreen extends Component {
                                   </strong>
                                 </span>
                                 <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
-                                  {"Deposit KES [X] · "}
+                                  {"Deposit ETB [X] · "}
                                   {r.startFmt}
                                   {" start"}
                                 </span>
@@ -2231,7 +2231,7 @@ export default class AccountScreen extends Component {
                           textTransform: "uppercase",
                           color: "#5E6470",
                         }}
-                        data-cols="table"
+                        data-cols="t6"
                       >
                         <span role="columnheader">Order</span>
                         <span role="columnheader">Date</span>
@@ -2257,7 +2257,7 @@ export default class AccountScreen extends Component {
                               borderTop: "1px solid #EFEDE8",
                               fontSize: "14px",
                             }}
-                            data-cols="table"
+                            data-cols="t6"
                           >
                             <span role="cell" style={{ fontWeight: "700" }} suppressHydrationWarning>
                               {o.no}
@@ -2369,7 +2369,7 @@ export default class AccountScreen extends Component {
                         >
                           Deposit refunds
                         </h2>
-                        <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>To M-Pesa [PHONE]</span>
+                        <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>To Telebirr [PHONE]</span>
                       </div>
                       <ul style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
                         <li style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -2559,7 +2559,7 @@ export default class AccountScreen extends Component {
                             </span>
                           </span>
                           <span style={{ fontSize: "14px", lineHeight: "1.5", color: "#CFE2F3" }}>
-                            Garden party bundle: tent, 20 chairs, speaker and lights from KES 6,500 a day.
+                            Garden party bundle: tent, 20 chairs, speaker and lights from ETB 6,500 a day.
                           </span>
                         </div>
                         <span
@@ -2720,7 +2720,7 @@ export default class AccountScreen extends Component {
                               alignItems: "center",
                               gap: "12px",
                             }}
-                            data-cols="table"
+                            data-cols="t5"
                           >
                             <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                               <span style={{ fontSize: "16px", fontWeight: "700" }} suppressHydrationWarning>
@@ -2933,7 +2933,7 @@ export default class AccountScreen extends Component {
                                       <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
                                       <circle cx="12" cy="9.5" r="2.5" />
                                     </svg>
-                                    [DELIVERY ADDRESS], [CITY] · Paid with M-Pesa
+                                    [DELIVERY ADDRESS], [CITY] · Paid with Telebirr
                                   </span>
                                   <div style={{ display: "flex", gap: "10px" }}>
                                     <a
@@ -3187,7 +3187,7 @@ export default class AccountScreen extends Component {
                                   <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
                                     {r.costFmt}
                                   </span>
-                                  <span style={{ fontSize: "12px", color: "#5E6470" }}>+ deposit KES [X]</span>
+                                  <span style={{ fontSize: "12px", color: "#5E6470" }}>+ deposit ETB [X]</span>
                                 </span>
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 4px" }}>
@@ -3991,7 +3991,7 @@ export default class AccountScreen extends Component {
                             fontWeight: "800",
                           }}
                         >
-                          M-PESA
+                          TELEBIRR
                         </span>
                         <span
                           style={{
@@ -4127,7 +4127,7 @@ export default class AccountScreen extends Component {
                           <path d="M12 5v14M5 12h14" />
                         </svg>
                       </span>
-                      Add card or M-Pesa number
+                      Add card or Telebirr number
                     </button>
                   </div>
                   <div

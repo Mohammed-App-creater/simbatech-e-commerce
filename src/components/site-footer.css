@@ -322,7 +322,7 @@
 
 .sf-wordmark {
   display: block;
-  width: 100%;
+  width: 90%;
   height: auto;
   margin-top: 12px;
 }
@@ -355,11 +355,13 @@
 
 .sf-bottom-right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 12px 18px;
 }
 
 .sf-locale {
+  white-space: nowrap;
   height: 30px;
   padding: 0 12px;
   display: flex;
@@ -386,8 +388,12 @@
   font-weight: 800;
 }
 
-.sf-pay-mpesa {
-  color: #1f9d55;
+.sf-pay-telebirr {
+  color: #12a3b6;
+}
+
+.sf-pay-cbe {
+  color: #6b2d90;
 }
 
 .sf-pay-visa {

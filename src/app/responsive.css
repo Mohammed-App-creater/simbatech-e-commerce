@@ -20,6 +20,20 @@ img {
   max-width: 100%;
 }
 
+/* Order-confirmed hero: the design fixed this card at 360px, which clipped the buttons. Let it grow. */
+[data-sec="success-block"] > div {
+  height: auto !important;
+  min-height: 360px;
+}
+
+[data-sec="success-block"] > div > [data-abs="text"] {
+  position: relative !important;
+  inset: auto !important;
+  margin: 48px 0 40px 56px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Horizontal-scroll rows (category nav, tab lists) */
 nav[aria-label="Departments"],
 [role="tablist"] {
@@ -144,6 +158,15 @@ nav[aria-label="Departments"]::-webkit-scrollbar,
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
+  /* Shop hero strip: copy takes the left 60%, one illustration on the right */
+  [data-sec="breadcrumb-hero-strip"] [data-w] {
+    width: 50% !important;
+  }
+
+  [data-sec="breadcrumb-hero-strip"] [data-abs="art"] ~ [data-abs="art"] {
+    display: none !important;
+  }
+
   /* 12-column page layouts: side columns get a bit more room */
   [data-cols="12"] > [data-span="3"] {
     grid-column: span 4 !important;
@@ -173,15 +196,23 @@ nav[aria-label="Departments"]::-webkit-scrollbar,
     display: none !important;
   }
 
-  /* Header: icon-only controls */
-  header > button {
+  /* Header: icon-only controls (the categories control is a <button> on the home page, a link elsewhere) */
+  header > .ghost {
     padding: 0 14px !important;
     gap: 0 !important;
     font-size: 0 !important;
   }
 
-  header > button > svg:last-child {
+  header > .ghost > svg:last-child {
     display: none !important;
+  }
+
+  /* Sign in: "Back to shop" sits above the form instead of over it */
+  [data-cols="2"][style*="flex-grow:1"] > div:last-child > a[data-abs] {
+    position: static !important;
+    inset: auto !important;
+    align-self: flex-end;
+    margin: 0 0 12px !important;
   }
 
   header > a > span:last-child:not(:first-child) {

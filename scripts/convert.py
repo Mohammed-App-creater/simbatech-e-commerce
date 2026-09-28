@@ -13,6 +13,9 @@ BOOL = {'checked','disabled','selected','required','readonly','multiple','hidden
 ROUTES = {'HomeMarket':'/','Products':'/shop','Detail':'/product','Cart':'/cart','Checkout':'/checkout',
           'Confirmation':'/order-confirmed','Account':'/account','SignIn':'/signin'}
 BIND = re.compile(r'\{\{\s*(.*?)\s*\}\}')
+# The design was drafted for Kenya; the store runs in Ethiopia.
+LOCALE = [('KES', 'ETB'), ('Kenya', 'Ethiopia'), ('07XX XXX XXX', '09XX XXX XXX'), ('+254', '+251'),
+          ('M-PESA', 'TELEBIRR'), ('M-Pesa', 'Telebirr')]
 
 
 def route_str(s):
@@ -69,11 +72,13 @@ def abs_kind(n):
     kids = [c for c in n.children if not (isinstance(c, str) and not c.strip())]
     if not kids:
         return 'deco'
-    if contains(n, lambda c: c.tag == 'dc-import') and not contains(n, lambda c: isinstance(c, str)):
+    is_import = lambda c: not isinstance(c, str) and c.tag == 'dc-import'
+    if contains(n, is_import) and not contains(n, lambda c: isinstance(c, str)):
         return 'art'
     w = px(raw, 'width')
-    if (w and w >= 200) or (has(raw, 'top') and has(raw, 'bottom')) or (has(raw, 'left') and has(raw, 'right')):
-        return 'text'
+    spans = (w and w >= 200) or (has(raw, 'top') and has(raw, 'bottom')) or (has(raw, 'left') and has(raw, 'right'))
+    if spans and re.search(r'flex-direction:\s*column', raw):
+        return 'text'  # a stacked copy block (eyebrow / heading / CTA)
     return 'misc'
 
 
@@ -439,6 +444,8 @@ def convert(path, name, images, is_render=False):
     else:
         out += '\n'.join(l[2:] if l.startswith('  ') else l for l in jsx.split('\n')) + '\n'
     out += '    );\n  }\n}\n'
+    for a, b in LOCALE:
+        out = out.replace(a, b)
     return out
 
 

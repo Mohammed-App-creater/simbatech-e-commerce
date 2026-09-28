@@ -8,15 +8,15 @@ import SiteFooter from "@/components/SiteFooter";
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-// Sample cart (same as /cart): purchases KES 104,500, camera rental KES 6,900 (3 days).
+// Sample cart (same as /cart): purchases ETB 104,500, camera rental ETB 6,900 (3 days).
 var PURCHASES = 104500;
 var RENTALS = 6900;
-// PLACEHOLDER: sample delivery fees. Same-day costs extra; other days are free because purchases are over the sample KES 100,000 threshold.
+// PLACEHOLDER: sample delivery fees. Same-day costs extra; other days are free because purchases are over the sample ETB 100,000 threshold.
 var SAME_DAY_FEE = 450;
 var LINES = [
   { name: "Lumen Z6 Camera", kind: "camera", bg: "#E0F1FF", qty: 1, meta: "Rental · 3 Oct – 6 Oct", price: 6900, rent: true },
   { name: "Linen 3-Seater Sofa", kind: "sofa", bg: "#F3EEE6", qty: 1, meta: "Purchase · Qty 1", price: 84900 },
-  { name: "Street Runner Sneakers", kind: "sneaker", bg: "#FFE4EF", qty: 2, meta: "Purchase · Qty 2 × KES 9,800", price: 19600 },
+  { name: "Street Runner Sneakers", kind: "sneaker", bg: "#FFE4EF", qty: 2, meta: "Purchase · Qty 2 × ETB 9,800", price: 19600 },
 ];
 var ADDRS = [
   { id: "home", label: "Home", line1: "[ADDRESS LINE], [AREA]", line2: "[CITY] · [PHONE]" },
@@ -42,16 +42,23 @@ var WINDOWS = [
   { id: "w4", label: "6pm – 8pm" },
 ];
 var PAYS = [
-  { id: "mpesa", title: "M-Pesa", sub: "Pay instantly from your phone", chip: "M-PESA", chipFg: "#1F9D55", chipStyle: "normal" },
+  { id: "mpesa", title: "Telebirr", sub: "Pay instantly from your phone", chip: "TELEBIRR", chipFg: "#1F9D55", chipStyle: "normal" },
   { id: "card", title: "Debit or credit card", sub: "Visa or Mastercard", chip: "VISA", chipFg: "#1A1F71", chipStyle: "italic" },
-  { id: "cod", title: "Pay on delivery", sub: "M-Pesa or card at your door", chip: "ON DELIVERY", chipFg: "#3A3F4A", chipStyle: "normal" },
+  {
+    id: "cod",
+    title: "Pay on delivery",
+    sub: "Telebirr or card at your door",
+    chip: "ON DELIVERY",
+    chipFg: "#3A3F4A",
+    chipStyle: "normal",
+  },
 ];
 var BLUE = "#0D4F8B",
   GREEN = "#2F7A3C",
   GREY = "#B4B8BF";
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -277,7 +284,7 @@ class Component extends React.Component {
       slotStatusFg: statusFg(slotDone),
       slotNote: isToday
         ? "Same-day delivery for orders placed before [TIME]. A " + fmt(SAME_DAY_FEE) + " fee applies."
-        : "Free delivery: your purchases are over the KES 100,000 free-delivery threshold.",
+        : "Free delivery: your purchases are over the ETB 100,000 free-delivery threshold.",
       slotShort: dayLabel + " · " + winLabel,
       feeFmt: fee ? fmt(fee) : "Free",
       feeColor: fee ? "#111318" : GREEN,
@@ -617,7 +624,7 @@ export default class CheckoutScreen extends Component {
                         autoComplete="tel"
                         value={vals.phone}
                         onChange={vals.onPhone}
-                        placeholder="07XX XXX XXX"
+                        placeholder="09XX XXX XXX"
                         style={{
                           height: "52px",
                           boxSizing: "border-box",
@@ -1195,7 +1202,7 @@ export default class CheckoutScreen extends Component {
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                         <span style={{ fontSize: "17px", fontWeight: "700" }}>Lumen Z6 Camera</span>
                         <span style={{ fontSize: "15px", fontWeight: "700" }}>
-                          {"KES 6,900 "}
+                          {"ETB 6,900 "}
                           <span style={{ fontWeight: "500", color: "#5E6470" }}>· 3 days</span>
                         </span>
                       </div>
@@ -1291,7 +1298,7 @@ export default class CheckoutScreen extends Component {
                         </div>
                       </div>
                       <p style={{ margin: "0", fontSize: "13px", lineHeight: "1.5", color: "#3A3F4A" }}>
-                        No need to bring it back — we collect it from the same address. Your KES [X] deposit is refunded after the camera is
+                        No need to bring it back — we collect it from the same address. Your ETB [X] deposit is refunded after the camera is
                         checked, within [N] days.
                       </p>
                     </div>
@@ -1433,7 +1440,7 @@ export default class CheckoutScreen extends Component {
                       >
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           <label htmlFor="p-mpesa" style={{ fontSize: "14px", fontWeight: "600" }}>
-                            M-Pesa phone number
+                            Telebirr phone number
                           </label>
                           <input
                             id="p-mpesa"
@@ -1441,7 +1448,7 @@ export default class CheckoutScreen extends Component {
                             autoComplete="tel"
                             value={vals.mpesa}
                             onChange={vals.onMpesa}
-                            placeholder="07XX XXX XXX"
+                            placeholder="09XX XXX XXX"
                             style={{
                               height: "52px",
                               boxSizing: "border-box",
@@ -1487,7 +1494,7 @@ export default class CheckoutScreen extends Component {
                           </svg>
                           <span>
                             <strong>{"You'll get a prompt on your phone."}</strong>
-                            {" Enter your M-Pesa PIN to pay."}
+                            {" Enter your Telebirr PIN to pay."}
                           </span>
                         </div>
                       </div>
@@ -1624,7 +1631,7 @@ export default class CheckoutScreen extends Component {
                           color: "#3A3F4A",
                         }}
                       >
-                        Pay by M-Pesa or card when your purchases arrive. The rental and its KES [X] deposit are paid when the camera is
+                        Pay by Telebirr or card when your purchases arrive. The rental and its ETB [X] deposit are paid when the camera is
                         delivered. [PAY ON DELIVERY TERMS]
                       </div>
                     </>
@@ -1828,11 +1835,11 @@ export default class CheckoutScreen extends Component {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <dt style={{ color: "#3A3F4A" }}>Purchases</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>KES 104,500</dd>
+                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB 104,500</dd>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <dt style={{ color: "#3A3F4A" }}>Rentals · 3 days</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>KES 6,900</dd>
+                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB 6,900</dd>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
                     <dt style={{ display: "flex", flexDirection: "column", color: "#3A3F4A" }}>
@@ -1847,7 +1854,7 @@ export default class CheckoutScreen extends Component {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <dt style={{ color: "#3A3F4A" }}>Refundable deposit</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>KES [X]</dd>
+                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB [X]</dd>
                   </div>
                 </dl>
                 <div
@@ -1861,7 +1868,7 @@ export default class CheckoutScreen extends Component {
                 >
                   <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span style={{ fontSize: "16px", fontWeight: "700" }}>Total</span>
-                    <span style={{ fontSize: "12px", color: "#5E6470" }}>+ KES [X] refundable deposit</span>
+                    <span style={{ fontSize: "12px", color: "#5E6470" }}>+ ETB [X] refundable deposit</span>
                   </span>
                   <span
                     style={{
@@ -1932,7 +1939,7 @@ export default class CheckoutScreen extends Component {
                       fontWeight: "800",
                     }}
                   >
-                    M-PESA
+                    TELEBIRR
                   </span>
                   <span
                     style={{

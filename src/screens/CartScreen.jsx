@@ -18,14 +18,14 @@ var P = [
   { id: "p8", name: "Glow Skincare Duo", cat: "Beauty", kind: "skincare", bg: "#D9F3F0", buy: 4600, rating: "4.8" },
 ];
 var RECS = ["p2", "p4", "p6", "p8"];
-// PLACEHOLDER: sample free-delivery threshold (KES 100,000 on purchases after discounts). Replace with the store's real rule.
+// PLACEHOLDER: sample free-delivery threshold (ETB 100,000 on purchases after discounts). Replace with the store's real rule.
 var FREE_THRESHOLD = 100000;
 // PLACEHOLDER: sample delivery fee below the threshold. Replace with the real fee table.
 var DELIVERY_FEE = 500;
 var PROMO_CODE = "SIMBA10";
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -461,7 +461,7 @@ export default class CartScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over KES [X]
+                Free delivery on orders over ETB [X]
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
@@ -1297,7 +1297,7 @@ export default class CartScreen extends Component {
                                   </Link>
                                 </div>
                                 <span style={{ fontSize: "13px", color: "#5E6470" }}>
-                                  {"Refundable deposit KES [X] · held until it's back with us"}
+                                  {"Refundable deposit ETB [X] · held until it's back with us"}
                                 </span>
                               </div>
                               <div
@@ -1945,7 +1945,7 @@ export default class CartScreen extends Component {
                           Rental
                         </span>
                       </dt>
-                      <dd style={{ margin: "0", fontWeight: "600" }}>KES [X]</dd>
+                      <dd style={{ margin: "0", fontWeight: "600" }}>ETB [X]</dd>
                     </div>
                   </dl>
                   <div
@@ -2080,7 +2080,7 @@ export default class CartScreen extends Component {
                   >
                     <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <span style={{ fontSize: "16px", fontWeight: "700" }}>Total</span>
-                      <span style={{ fontSize: "12px", color: "#5E6470" }}>+ KES [X] refundable deposit</span>
+                      <span style={{ fontSize: "12px", color: "#5E6470" }}>+ ETB [X] refundable deposit</span>
                     </span>
                     <span
                       aria-live="polite"
@@ -2144,7 +2144,7 @@ export default class CartScreen extends Component {
                           fontWeight: "800",
                         }}
                       >
-                        M-PESA
+                        TELEBIRR
                       </span>
                       <span
                         style={{

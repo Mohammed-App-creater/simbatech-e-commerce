@@ -8,11 +8,11 @@ import SiteFooter from "@/components/SiteFooter";
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-// Sample order (same cart as Cart/Checkout). Rental quoted at KES 6,900 for 3 days.
+// Sample order (same cart as Cart/Checkout). Rental quoted at ETB 6,900 for 3 days.
 var PURCHASES = 104500;
 var RENT_BASE = 6900;
 var RENT_DAYS = 3;
-// PLACEHOLDER: extension rate per extra day — uses the catalog daily rate (KES 2,500) for the Lumen Z6.
+// PLACEHOLDER: extension rate per extra day — uses the catalog daily rate (ETB 2,500) for the Lumen Z6.
 var EXTRA_RATE = 2500;
 var RETURN_BASE = Date.UTC(2026, 9, 6); // Tue 6 Oct 2026
 var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -26,7 +26,7 @@ var TRACK = [
 var CURRENT = 1; // 0 = placed (done), 1 = packing now
 function fmt(n) {
   return (
-    "KES " +
+    "ETB " +
     Math.round(n)
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -1046,7 +1046,7 @@ export default class ConfirmedScreen extends Component {
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt style={{ color: "#3A3F4A" }}>Purchases</dt>
-                  <dd style={{ margin: "0", fontWeight: "600" }}>KES 104,500</dd>
+                  <dd style={{ margin: "0", fontWeight: "600" }}>ETB 104,500</dd>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt style={{ color: "#3A3F4A" }} suppressHydrationWarning>
@@ -1062,11 +1062,11 @@ export default class ConfirmedScreen extends Component {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt style={{ color: "#3A3F4A" }}>Refundable deposit</dt>
-                  <dd style={{ margin: "0", fontWeight: "600" }}>KES [X]</dd>
+                  <dd style={{ margin: "0", fontWeight: "600" }}>ETB [X]</dd>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt style={{ color: "#3A3F4A" }}>Paid with</dt>
-                  <dd style={{ margin: "0", fontWeight: "700", color: "#1F9D55" }}>M-PESA</dd>
+                  <dd style={{ margin: "0", fontWeight: "700", color: "#1F9D55" }}>TELEBIRR</dd>
                 </div>
               </dl>
               <div
@@ -1080,7 +1080,7 @@ export default class ConfirmedScreen extends Component {
               >
                 <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span style={{ fontSize: "16px", fontWeight: "700" }}>Total</span>
-                  <span style={{ fontSize: "12px", color: "#5E6470" }}>+ KES [X] refundable deposit</span>
+                  <span style={{ fontSize: "12px", color: "#5E6470" }}>+ ETB [X] refundable deposit</span>
                 </span>
                 <span
                   aria-live="polite"
@@ -1111,7 +1111,7 @@ export default class ConfirmedScreen extends Component {
                   >
                     {"Extension of "}
                     {vals.extraWord}
-                    {" added. We'll send an M-Pesa prompt for "}
+                    {" added. We'll send an Telebirr prompt for "}
                     {vals.extraFmt}
                     {" to [PHONE]."}
                   </p>
