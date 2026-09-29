@@ -5,8 +5,8 @@ import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
 import MobileFilters from "@/components/MobileFilters";
-import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
-import { rentalBasePrice } from "@/lib/pricing";
+import { shopState, connectShop, headerVals, submitSearch, navigate, storeVals, cart, wishlist } from "@/lib/client/store";
+import { rentalBasePrice, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup mirrors the original 1:1; data comes from `initial`.
@@ -109,10 +109,11 @@ function normBrands(initial, list) {
 function searchText(p) {
   return [p.name, p.brand, p.cat, p.dept, p.kind, p.description].join(" ").toLowerCase();
 }
-function shopHref(q, mode, cats, brands) {
+function shopHref(q, mode, cats, brands, deals) {
   var params = new URLSearchParams();
   if (q) params.set("q", q);
   if (mode && mode !== "all") params.set("mode", mode);
+  if (deals) params.set("deals", "1");
   Object.keys(cats || {}).forEach(function (k) {
     if (cats[k]) params.append("dept", k);
   });
@@ -145,6 +146,7 @@ class Component extends React.Component {
       mode: shopMode === "rent" ? "rent" : "buy",
       q: query.q || "",
       shop: shopMode,
+      deals: !!query.deals, // /shop?deals=1 → only products with a "was" price
       sort: "featured",
       cats: toSet(normDepts(initial, query.depts)),
       brands: toSet(normBrands(initial, query.brands)),
@@ -190,10 +192,12 @@ class Component extends React.Component {
     var BRANDS = brandList(initial);
     var shopS = shopState(initial);
     var hv = headerVals(shopS);
+    var store = storeVals(shopS);
     var s = this.state || {};
     var cats = s.cats || {};
     var brands = s.brands || {};
     var shop = s.shop || "all";
+    var deals = !!s.deals;
     var q = (s.q || "").trim();
     var terms = q.toLowerCase().split(/\s+/).filter(Boolean);
     var per =
@@ -227,6 +231,7 @@ class Component extends React.Component {
       }
       if (shop === "buy" && p.rentOnly) return false;
       if (shop === "rent" && !p.rent) return false;
+      if (deals && !p.was) return false;
       if (skip !== "cats" && anyOn(cats) && !cats[p.dept] && !cats[p.cat]) return false;
       if (skip !== "brands" && anyOn(brands) && !brands[p.brand]) return false;
       if ((s.rating || 0) > 0 && parseFloat(p.rating) < s.rating) return false;
@@ -496,7 +501,12 @@ class Component extends React.Component {
     if (q)
       chip("“" + q + "”", BLUE, function () {
         self.setState({ q: "" });
-        navigate(shopHref("", self.state.shop, self.state.cats, self.state.brands));
+        navigate(shopHref("", self.state.shop, self.state.cats, self.state.brands, self.state.deals));
+      });
+    if (deals)
+      chip("Deals", { bg: "#FBE9E6", fg: "#C42A1C" }, function () {
+        self.setState({ deals: false, page: 1, more: 0 });
+        navigate(shopHref(self.state.q, self.state.shop, self.state.cats, self.state.brands, false));
       });
     if (shop !== "all") chip(shop === "rent" ? "For rent" : "To buy", shop === "rent" ? GREEN : BLUE, set({ shop: "all", cardMode: {} }));
     onlyCats.forEach(function (c) {
@@ -514,6 +524,7 @@ class Component extends React.Component {
       self.setState({
         q: "",
         shop: "all",
+        deals: false,
         cats: {},
         brands: {},
         rating: 0,
@@ -581,8 +592,19 @@ class Component extends React.Component {
             ? ""
             : "across all departments";
     if (q) scope = "for “" + q + "”" + (scope ? " " + scope : "");
+    if (deals) scope = "on sale" + (scope ? " " + scope : "");
 
     return {
+      city: store.city,
+      freeOver: "Free delivery on orders over " + fmt(FREE_DELIVERY_THRESHOLD),
+      deals: deals,
+      crumb: deals ? "Deals" : "Shop",
+      eyebrow: deals ? "Sale prices" : "All departments",
+      heroLead: deals ? "Deals & " : "Shop & ",
+      heroAccent: deals ? "offers" : "rent",
+      heroText: deals
+        ? "Reduced prices while stock lasts. Delivered to your door, and collected when you are done renting."
+        : "Buy to keep, or rent by the day. Delivered to your door, and collected when you are done.",
       modes: modes,
       placeholder: mode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
       searchQ: q,
@@ -716,7 +738,7 @@ export default class ShopScreen extends Component {
                   <circle cx="12" cy="9.5" r="2.5" />
                 </svg>
                 Deliver to
-                <strong>[CITY]</strong>
+                <strong suppressHydrationWarning>{vals.city}</strong>
                 <svg
                   width="12"
                   height="12"
@@ -746,19 +768,19 @@ export default class ShopScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over ETB [X]
+                {vals.freeOver}
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/p/sell-with-us" style={{ color: "#E6F0F9" }}>
                 Sell or list with us
-              </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href="/track" style={{ color: "#E6F0F9" }}>
                 Track order
-              </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href="/p/help" style={{ color: "#E6F0F9" }}>
                 Help
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 English
               </a>
@@ -1134,7 +1156,7 @@ export default class ShopScreen extends Component {
               </svg>
               Rent anything
             </Link>
-            <Link href="/shop" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
+            <Link href="/shop?deals=1" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
               <svg
                 width="15"
                 height="15"
@@ -1178,8 +1200,8 @@ export default class ShopScreen extends Component {
                     <path d="M9 6l6 6-6 6" />
                   </svg>
                 </li>
-                <li aria-current="page" style={{ fontWeight: "600", color: "#111318" }}>
-                  Shop
+                <li aria-current="page" style={{ fontWeight: "600", color: "#111318" }} suppressHydrationWarning>
+                  {vals.crumb}
                 </li>
               </ol>{" "}
             </nav>
@@ -1214,8 +1236,11 @@ export default class ShopScreen extends Component {
                 data-abs="text"
                 data-w
               >
-                <span style={{ fontSize: "13px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#0D4F8B" }}>
-                  All departments
+                <span
+                  style={{ fontSize: "13px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#0D4F8B" }}
+                  suppressHydrationWarning
+                >
+                  {vals.eyebrow}
                 </span>
                 <h1
                   style={{
@@ -1226,8 +1251,9 @@ export default class ShopScreen extends Component {
                     fontWeight: "700",
                     letterSpacing: "-0.045em",
                   }}
+                  suppressHydrationWarning
                 >
-                  {"Shop & "}
+                  {vals.heroLead}
                   <span
                     style={{
                       fontFamily: "'Instrument Serif', serif",
@@ -1237,11 +1263,11 @@ export default class ShopScreen extends Component {
                       color: "#2F7A3C",
                     }}
                   >
-                    rent
+                    {vals.heroAccent}
                   </span>
                 </h1>
-                <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.5", color: "#3A3F4A" }}>
-                  Buy to keep, or rent by the day. Delivered to your door, and collected when you are done.
+                <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.5", color: "#3A3F4A" }} suppressHydrationWarning>
+                  {vals.heroText}
                 </p>
                 <div
                   role="group"
@@ -1707,7 +1733,7 @@ export default class ShopScreen extends Component {
                     ))}
                   </div>
                   <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
-                    Changes how rental prices are shown. Refundable deposit ETB [X] per item.
+                    Changes how rental prices are shown. Each item shows its refundable deposit.
                   </span>
                 </fieldset>
                 <fieldset

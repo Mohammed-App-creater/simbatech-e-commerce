@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import MobileTabBar from "@/components/MobileTabBar";
 import RouterBridge from "@/components/RouterBridge";
+import StoreProvider from "@/components/StoreProvider";
+import { getStore } from "@/lib/server/api";
 import "./fonts.css";
 import "./globals.css";
 import "./responsive.css";
@@ -17,13 +19,16 @@ export const viewport: Viewport = {
   themeColor: "#0D4F8B",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const store = await getStore().catch(() => null);
   return (
     <html lang="en">
       <body>
-        <RouterBridge />
-        {children}
-        <MobileTabBar />
+        <StoreProvider store={store}>
+          <RouterBridge />
+          {children}
+          <MobileTabBar />
+        </StoreProvider>
       </body>
     </html>
   );

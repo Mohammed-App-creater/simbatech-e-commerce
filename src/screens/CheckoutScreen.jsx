@@ -4,7 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, navigate, placeOrder } from "@/lib/client/store";
+import { shopState, connectShop, storeVals, placeOrder, finishCheckout } from "@/lib/client/store";
 import { computeTotals, SAME_DAY_FEE, DAY_MS, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
@@ -68,6 +68,20 @@ function dow(iso) {
 function longDate(iso) {
   return dow(iso) + " " + dayMonth(iso) + " " + isoDate(iso).getUTCFullYear();
 }
+// 16 -> "4pm", 9 -> "9am" (the store's same-day cut-off hour)
+function hourLabel(h) {
+  var n = Number(h);
+  if (isNaN(n)) return String(h || "");
+  var x = n % 12 || 12;
+  return x + (n < 12 || n === 24 ? "am" : "pm");
+}
+function telHref(phone) {
+  return "tel:" + String(phone || "").replace(/[^\d+]/g, "");
+}
+// Saved card chip label: "Visa •••• 4242 · 12/28"
+function cardLabel(m) {
+  return [m.brand, "••••", m.last4].filter(Boolean).join(" ") + (m.expiry ? " · " + m.expiry : "");
+}
 // Field paths the checkout API reports ({ error, field }) -> which inline slot shows the message.
 var FIELD_SLOTS = {
   "contact.name": "name",
@@ -90,6 +104,15 @@ class Component extends React.Component {
       addrs.filter(function (a) {
         return a.isDefault;
       })[0] || addrs[0];
+    // Saved payment methods (signed-in users): the default Telebirr number prefills the phone field.
+    var methods = initial.paymentMethods || [];
+    var telebirrs = methods.filter(function (m) {
+      return m.kind === "telebirr" && m.phone;
+    });
+    var defTelebirr =
+      telebirrs.filter(function (m) {
+        return m.isDefault;
+      })[0] || telebirrs[0];
     this.state = {
       name: user ? user.name || "" : "",
       phone: user ? user.phone || "" : "",
@@ -102,7 +125,8 @@ class Component extends React.Component {
       date: "",
       win: "w2",
       pay: "mpesa",
-      mpesa: user ? user.phone || "" : "",
+      mpesa: defTelebirr ? defTelebirr.phone : user ? user.phone || "" : "",
+      savedCard: null, // id of the saved card chip in use (null = a new card typed below)
       cardNo: "",
       cardExp: "",
       cardCvc: "",
@@ -127,7 +151,15 @@ class Component extends React.Component {
     var s = this.state || {};
     var initial = this.props.initial || {};
     var shop = shopState(initial);
+    var store = storeVals(shop);
     var errors = s.errors || {};
+    var savedCards = (initial.paymentMethods || []).filter(function (m) {
+      return m.kind === "card" && m.last4;
+    });
+    var savedCard =
+      savedCards.filter(function (m) {
+        return m.id === s.savedCard;
+      })[0] || null;
     var set = function (k, fn) {
       return function (e) {
         var o = {};
@@ -180,7 +212,8 @@ class Component extends React.Component {
     var payValid =
       s.pay === "cod" ||
       (s.pay === "mpesa" && digits(s.mpesa, 15).length >= 9) ||
-      (s.pay === "card" && digits(s.cardNo, 19).length >= 15 && digits(s.cardExp, 4).length === 4 && digits(s.cardCvc, 4).length >= 3);
+      (s.pay === "card" &&
+        (!!savedCard || (digits(s.cardNo, 19).length >= 15 && digits(s.cardExp, 4).length === 4 && digits(s.cardCvc, 4).length >= 3)));
     var billingOk = s.billingSame || !!(s.billAddr && s.billAddr.trim());
     var detailsDone = contactDone;
     var deliveryDone = pickup || (addrDone && slotDone);
@@ -330,6 +363,7 @@ class Component extends React.Component {
         kind: p.kind,
         bg: p.bg,
         qty: l.qty,
+        variant: l.variant ? l.variant.label : "",
         meta: meta,
         priceFmt: fmt(l.lineTotal),
         badgeBg: rent ? GREEN : BLUE,
@@ -343,6 +377,7 @@ class Component extends React.Component {
         name: p.name,
         kind: p.kind,
         bg: p.bg,
+        variant: l.variant ? l.variant.label : "",
         href: "/product/" + p.id,
         priceFmt: fmt(l.lineTotal) + " ",
         daysLabel: "· " + l.rentDays + (l.rentDays === 1 ? " day" : " days"),
@@ -353,7 +388,9 @@ class Component extends React.Component {
           fmt(l.deposit) +
           " deposit is refunded after the " +
           p.name +
-          " is checked, within [N] days.",
+          " is checked, within " +
+          store.depositRefundDays +
+          " days.",
       };
     });
     var rentDays = rentalLines.reduce(function (a, l) {
@@ -372,7 +409,7 @@ class Component extends React.Component {
         : rentals.length === 1
           ? " The rental and its " + fmt(t.deposit) + " deposit are paid when the " + rentals[0].name + " is delivered."
           : " The rentals and their " + fmt(t.deposit) + " deposit are paid when they are delivered.") +
-      " [PAY ON DELIVERY TERMS]";
+      (store.payOnDeliveryTerms ? " " + store.payOnDeliveryTerms : "");
 
     var terms = !!s.terms;
     var ready = terms && !s.submitting;
@@ -384,7 +421,8 @@ class Component extends React.Component {
       if (method === "telebirr") payment.phone = st.mpesa;
       if (method === "card") {
         var d = digits(st.cardNo, 19);
-        if (d.length >= 4) payment.cardLast4 = d.slice(-4); // never send the full card data
+        if (savedCard) payment.cardLast4 = savedCard.last4;
+        else if (d.length >= 4) payment.cardLast4 = d.slice(-4); // never send the full card data
       }
       var payload = {
         contact: { name: st.name, phone: st.phone, email: st.email },
@@ -403,7 +441,9 @@ class Component extends React.Component {
       self.setState({ submitting: true, errors: {}, orderError: "", termsError: "" });
       placeOrder(payload).then(
         function (res) {
-          navigate("/order-confirmed/" + res.orderId);
+          // Online payments go to the gateway (redirectUrl), everything else to the confirmation page.
+          // `submitting` stays true so the frozen summary holds until the browser leaves this page.
+          finishCheckout(res);
         },
         function (err) {
           var slot = err.field ? FIELD_SLOTS[err.field] : null;
@@ -469,7 +509,7 @@ class Component extends React.Component {
       slotStatus: pickup ? "We will text you" : slotDone ? dayLabel + ", " + winLabel : "Choose a window",
       slotStatusFg: statusFg(pickup || slotDone),
       slotNote: isToday
-        ? "Same-day delivery for orders placed before [TIME]. A " + fmt(SAME_DAY_FEE) + " fee applies."
+        ? "Same-day delivery for orders placed before " + hourLabel(store.sameDayCutoffHour) + ". A " + fmt(SAME_DAY_FEE) + " fee applies."
         : baseFee
           ? "Delivery is " + fmt(baseFee) + ". Add " + fmt(t.freeDeliveryRemaining) + " more in purchases for free delivery."
           : t.purchases > 0
@@ -488,12 +528,32 @@ class Component extends React.Component {
       mpesa: s.mpesa || "",
       onMpesa: set("mpesa"),
       errMpesa: errors.mpesa || "",
+      savedCards: savedCards.map(function (m) {
+        var on = !!savedCard && savedCard.id === m.id;
+        return {
+          label: cardLabel(m),
+          aria: on ? "true" : "false",
+          border: on ? BLUE : "#EFEDE8",
+          bg: on ? "#EAF3FA" : "#FFFFFF",
+          fg: on ? BLUE : "#111318",
+          pick: function () {
+            var er = Object.assign({}, self.state.errors);
+            delete er.cardNo;
+            self.setState({ savedCard: on ? null : m.id, errors: er });
+          },
+        };
+      }),
+      hasSavedCards: savedCards.length > 0,
       cardNo: s.cardNo || "",
       cardExp: s.cardExp || "",
       cardCvc: s.cardCvc || "",
-      onCardNo: set("cardNo", function (v) {
-        return digits(v, 19).replace(/(\d{4})(?=\d)/g, "$1 ");
-      }),
+      onCardNo: function (e) {
+        // typing a new number means the saved-card chip no longer applies
+        set("cardNo", function (v) {
+          return digits(v, 19).replace(/(\d{4})(?=\d)/g, "$1 ");
+        })(e);
+        if (self.state.savedCard) self.setState({ savedCard: null });
+      },
       onExp: set("cardExp", function (v) {
         var d = digits(v, 4);
         return d.length > 2 ? d.slice(0, 2) + " / " + d.slice(2) : d;
@@ -552,6 +612,15 @@ class Component extends React.Component {
         }
         submit();
       },
+      // Store details (with fallbacks) for the copy that used to hold [PLACEHOLDERS]
+      helpPhone: store.phone,
+      helpHref: telHref(store.phone),
+      pickupWhere: "We'll text you when your order is ready to collect from " + store.name + ", " + store.address + ".",
+      pickupReady: "Ready in " + store.pickupReadyHours + " hours · we will text you",
+      providerNote: "Card details are encrypted and handled by our payment provider, Telebirr.",
+      linePlaceholder: "e.g. " + store.address,
+      cityPlaceholder: store.city,
+      billPlaceholder: "e.g. " + store.address + (String(store.address).indexOf(store.city) < 0 ? ", " + store.city : ""),
     };
   }
 }
@@ -697,8 +766,8 @@ export default class CheckoutScreen extends Component {
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25", fontSize: "12px", color: "#5E6470" }}>
                 Need help?
-                <a href="#" style={{ fontSize: "14px", fontWeight: "700", color: "#0D4F8B" }}>
-                  [PHONE]
+                <a href={vals.helpHref} style={{ fontSize: "14px", fontWeight: "700", color: "#0D4F8B" }} suppressHydrationWarning>
+                  {vals.helpPhone}
                 </a>
               </span>
             </div>
@@ -957,8 +1026,8 @@ export default class CheckoutScreen extends Component {
                       }}
                     >
                       <span style={{ fontSize: "16px", fontWeight: "700" }}>Pick up in store</span>
-                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }}>
-                        {"We'll text you when your order is ready to collect from the Simbatech store, [ADDRESS]."}
+                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }} suppressHydrationWarning>
+                        {vals.pickupWhere}
                       </span>
                       <Link
                         href="/checkout"
@@ -1126,7 +1195,7 @@ export default class CheckoutScreen extends Component {
                                 autoComplete="address-line1"
                                 value={vals.newLine}
                                 onChange={vals.onNewLine}
-                                placeholder="e.g. [BUILDING], [STREET]"
+                                placeholder={vals.linePlaceholder}
                                 style={{
                                   height: "52px",
                                   boxSizing: "border-box",
@@ -1156,7 +1225,7 @@ export default class CheckoutScreen extends Component {
                                 autoComplete="address-level3"
                                 value={vals.newArea}
                                 onChange={vals.onNewArea}
-                                placeholder="[AREA]"
+                                placeholder="Neighbourhood or estate"
                                 style={{
                                   height: "52px",
                                   boxSizing: "border-box",
@@ -1186,7 +1255,7 @@ export default class CheckoutScreen extends Component {
                                 autoComplete="address-level2"
                                 value={vals.newCity}
                                 onChange={vals.onNewCity}
-                                placeholder="[CITY]"
+                                placeholder={vals.cityPlaceholder}
                                 style={{
                                   height: "52px",
                                   boxSizing: "border-box",
@@ -1283,8 +1352,8 @@ export default class CheckoutScreen extends Component {
                       }}
                     >
                       <span style={{ fontSize: "16px", fontWeight: "700" }}>Pick up in store</span>
-                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }}>
-                        {"Ready in [N] hours · we will text you"}
+                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }} suppressHydrationWarning>
+                        {vals.pickupReady}
                       </span>
                       <Link
                         href="/checkout"
@@ -1523,6 +1592,9 @@ export default class CheckoutScreen extends Component {
                               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                                 <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
                                   {r.name}
+                                  {r.variant ? (
+                                    <span style={{ fontSize: "13px", fontWeight: "500", color: "#5E6470" }}>{" · " + r.variant}</span>
+                                  ) : null}
                                 </span>
                                 <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
                                   {r.priceFmt}
@@ -1849,6 +1921,42 @@ export default class CheckoutScreen extends Component {
                         }}
                         data-cols="4"
                       >
+                        {vals.hasSavedCards ? (
+                          <div style={{ gridColumn: "span 4", display: "flex", flexDirection: "column", gap: "8px" }} data-span="4">
+                            <span style={{ fontSize: "14px", fontWeight: "600" }}>Saved cards</span>
+                            <div role="radiogroup" aria-label="Saved cards" style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                              {(vals.savedCards || []).map((sc, i0) => (
+                                <Fragment key={i0}>
+                                  <button
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={sc.aria}
+                                    onClick={sc.pick}
+                                    className="opt"
+                                    style={{
+                                      height: "36px",
+                                      padding: "0 14px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "6px",
+                                      border: `2px solid ${sc.border}`,
+                                      borderRadius: "999px",
+                                      background: sc.bg,
+                                      color: sc.fg,
+                                      font: "inherit",
+                                      fontSize: "13px",
+                                      fontWeight: "600",
+                                      cursor: "pointer",
+                                    }}
+                                    suppressHydrationWarning
+                                  >
+                                    {sc.label}
+                                  </button>
+                                </Fragment>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                         <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: "8px" }} data-span="2">
                           <label htmlFor="p-card" style={{ fontSize: "14px", fontWeight: "600" }}>
                             Card number
@@ -1958,7 +2066,7 @@ export default class CheckoutScreen extends Component {
                             <rect x="4" y="10" width="16" height="11" rx="2" />
                             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                           </svg>
-                          Card details are encrypted and handled by our payment provider, [PROVIDER].
+                          {vals.providerNote}
                         </span>
                       </div>
                     </>
@@ -2010,7 +2118,7 @@ export default class CheckoutScreen extends Component {
                           autoComplete="billing street-address"
                           value={vals.billAddr}
                           onChange={vals.onBill}
-                          placeholder="[ADDRESS], [CITY]"
+                          placeholder={vals.billPlaceholder}
                           style={{
                             height: "52px",
                             boxSizing: "border-box",
@@ -2044,13 +2152,13 @@ export default class CheckoutScreen extends Component {
                     <input type="checkbox" checked={vals.terms} onChange={vals.toggleTerms} aria-describedby="terms-err" />
                     <span>
                       {"I agree to the "}
-                      <a href="#" style={{ fontWeight: "600", color: "#0D4F8B", textDecoration: "underline" }}>
+                      <Link href="/p/terms" style={{ fontWeight: "600", color: "#0D4F8B", textDecoration: "underline" }}>
                         Terms of sale
-                      </a>
+                      </Link>
                       {" and "}
-                      <a href="#" style={{ fontWeight: "600", color: "#2F7A3C", textDecoration: "underline" }}>
+                      <Link href="/p/rental-terms" style={{ fontWeight: "600", color: "#2F7A3C", textDecoration: "underline" }}>
                         Rental terms
-                      </a>
+                      </Link>
                       {vals.termsTail}
                     </span>
                   </label>
@@ -2155,6 +2263,11 @@ export default class CheckoutScreen extends Component {
                           <span style={{ fontSize: "14px", fontWeight: "700" }} suppressHydrationWarning>
                             {l.name}
                           </span>
+                          {l.variant ? (
+                            <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
+                              {l.variant}
+                            </span>
+                          ) : null}
                           <span style={{ fontSize: "12px", fontWeight: "600", color: l.metaFg }} suppressHydrationWarning>
                             {l.meta}
                           </span>

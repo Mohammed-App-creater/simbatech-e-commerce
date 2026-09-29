@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { subscribeNewsletter } from "@/lib/client/store";
+import { useStore } from "@/components/StoreProvider";
 import "./site-footer.css";
 
 const COLUMNS = [
@@ -19,11 +20,11 @@ const COLUMNS = [
   {
     title: "Customer care",
     links: [
-      ["Delivery", "#"],
-      ["Returns", "#"],
-      ["Rental terms", "#"],
-      ["Track order", "#"],
-      ["Help centre", "#"],
+      ["Delivery", "/p/delivery"],
+      ["Returns", "/p/returns"],
+      ["Rental terms", "/p/rental-terms"],
+      ["Track order", "/track"],
+      ["Help centre", "/p/help"],
     ],
   },
   {
@@ -39,10 +40,10 @@ const COLUMNS = [
   {
     title: "Company",
     links: [
-      ["About", "#"],
-      ["Careers", "#"],
-      ["Sell with us", "#"],
-      ["Contact", "#"],
+      ["About", "/p/about"],
+      ["Careers", "/p/careers"],
+      ["Sell with us", "/p/sell-with-us"],
+      ["Contact", "/p/contact"],
     ],
   },
 ];
@@ -137,10 +138,44 @@ function Payments() {
 function Legal() {
   return (
     <nav className="sf-legal" aria-label="Legal">
-      <a href="#">Privacy policy</a>
-      <a href="#">Terms of use</a>
-      <a href="#">Cookies</a>
+      <Link href="/p/privacy">Privacy policy</Link>
+      <Link href="/p/terms">Terms of use</Link>
+      <Link href="/p/cookies">Cookies</Link>
     </nav>
+  );
+}
+
+/* Ethiopian numbers as dialable links: "0911 000 000" → tel:+251911000000 / https://wa.me/251911000000 */
+function intlDigits(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "251" + d.slice(1);
+  else if (/^[79]\d{8}$/.test(d)) d = "251" + d;
+  return d;
+}
+const telHref = (phone) => "tel:+" + intlDigits(phone);
+const waHref = (phone) => "https://wa.me/" + intlDigits(phone);
+
+/* "Get in touch": the store's details from the admin (via StoreProvider); the design's text when they're not loaded. */
+function Contact() {
+  const store = useStore();
+  const address = (store && store.address) || "[ADDRESS]";
+  const phone = (store && store.phone) || "";
+  const whatsapp = (store && store.whatsapp) || "";
+  const email = (store && store.email) || "hello@simbatech.et";
+  const hours = (store && store.hours) || "Mon–Sat, 8am–7pm";
+  return (
+    <div className="sf-contact">
+      <h3>Get in touch</h3>
+      <span>{address}</span>
+      <a href={phone ? telHref(phone) : "tel:+251900000000"}>{phone || "[PHONE]"}</a>
+      {whatsapp ? (
+        <a href={waHref(whatsapp)} target="_blank" rel="noopener noreferrer">
+          WhatsApp {whatsapp}
+        </a>
+      ) : null}
+      <a href={"mailto:" + email}>{email}</a>
+      <span className="sf-hours">{hours}</span>
+    </div>
   );
 }
 
@@ -242,13 +277,7 @@ export default function SiteFooter({ compact = false }) {
               )}
             </nav>
           ))}
-          <div className="sf-contact">
-            <h3>Get in touch</h3>
-            <span>[ADDRESS]</span>
-            <a href="tel:+251900000000">[PHONE]</a>
-            <a href="mailto:hello@simbatech.et">hello@simbatech.et</a>
-            <span className="sf-hours">Mon–Sat, 8am–7pm</span>
-          </div>
+          <Contact />
         </div>
       </div>
 

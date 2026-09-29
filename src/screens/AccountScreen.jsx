@@ -4,7 +4,22 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist, auth, api } from "@/lib/client/store";
+import {
+  shopState,
+  connectShop,
+  headerVals,
+  submitSearch,
+  navigate,
+  storeVals,
+  cart,
+  wishlist,
+  auth,
+  notifications,
+  paymentMethods,
+  payments,
+  api,
+} from "@/lib/client/store";
+import { FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -67,6 +82,17 @@ var NOTIF = [
   { id: "deals", label: "Deals and offers", sub: "Members-only prices" },
 ];
 var EMPTY_ADDR = { label: "", line1: "", area: "", city: "", phone: "", notes: "", isDefault: false };
+var EMPTY_PM = { kind: "telebirr", phone: "", brand: "Visa", last4: "", expiry: "", holder: "" };
+var EMPTY_PW = { current: "", password: "", confirm: "" };
+var NOTIF_DEFAULT = { sms: true, email: true, remind: true, deals: false };
+var PAY_STATUS = {
+  paid: { label: "Paid", bg: "#E4F2E6", fg: "#2F7A3C", dot: "#418D4D" },
+  pending: { label: "Payment pending", bg: "#FFF0E0", fg: "#9A4A06", dot: "#F08A24" },
+  failed: { label: "Payment failed", bg: "#FDECEA", fg: "#B02418", dot: "#C42A1C" },
+  refunded: { label: "Refunded", bg: "#EAF3FA", fg: "#0D4F8B", dot: "#1679BE" },
+};
+var CARD_NOTE =
+  "We only keep the card's brand, last four digits and expiry so you can pick it at checkout — the full number is never stored.";
 function fmt(n) {
   return (
     "ETB " +
@@ -113,6 +139,7 @@ class Component extends React.Component {
     super(props);
     var init = props.initial || {};
     var orders = init.orders || [];
+    var user = init.user || {};
     this.state = {
       section: NAV.indexOf(init.tab) >= 0 ? init.tab : "overview", // /account?tab=…
       mode: "buy",
@@ -120,18 +147,37 @@ class Component extends React.Component {
       orderTab: "all",
       openOrder: orders.length ? orders[0].id : null,
       rentTab: "active",
-      notif: { sms: true, email: true, remind: true, deals: false },
+      notif: Object.assign({}, NOTIF_DEFAULT, init.notifications || {}),
+      notifError: "",
       orders: orders,
       addresses: init.addresses || [],
       extBusy: null,
       extError: null,
+      payBusy: null, // order id being sent to the gateway
+      payError: null, // { id, message }
       adding: {},
       addErr: {},
       addrEdit: null, // address id being edited, or "new"
       addrForm: EMPTY_ADDR,
       addrBusy: false,
       addrError: "",
-      profileNote: "",
+      // Payment methods
+      pm: init.paymentMethods || [],
+      pmAdding: false,
+      pmForm: EMPTY_PM,
+      pmBusy: false,
+      pmError: "", // list-level error
+      pmFieldError: null, // { field, message } inside the add form
+      // Settings: profile
+      profile: { name: user.name || "", phone: user.phone || "", email: user.email || "" },
+      profileBusy: false,
+      profileDone: false,
+      profileError: null, // { field, message }
+      // Settings: password
+      pw: EMPTY_PW,
+      pwBusy: false,
+      pwDone: false,
+      pwError: null, // { field, message }
     };
   }
   componentDidMount() {
@@ -140,6 +186,126 @@ class Component extends React.Component {
   componentWillUnmount() {
     this.unsubShop && this.unsubShop();
     Object.keys(this.addT || {}).forEach((k) => clearTimeout(this.addT[k]));
+    clearTimeout(this.profileT);
+    clearTimeout(this.pwT);
+  }
+  payNow(order) {
+    var self = this;
+    if (this.state.payBusy) return;
+    this.setState({ payBusy: order.id, payError: null });
+    payments.payNow(order.id).catch(function (err) {
+      self.setState({ payBusy: null, payError: { id: order.id, message: errText(err) } });
+    });
+  }
+  toggleNotif(id) {
+    var self = this;
+    var before = this.state.notif;
+    var next = Object.assign({}, before);
+    next[id] = !before[id];
+    this.setState({ notif: next, notifError: "" }); // optimistic
+    var patch = {};
+    patch[id] = next[id];
+    notifications
+      .update(patch)
+      .then(function (res) {
+        self.setState({ notif: Object.assign({}, self.state.notif, res || {}) });
+      })
+      .catch(function (err) {
+        var reverted = Object.assign({}, self.state.notif);
+        reverted[id] = before[id];
+        self.setState({ notif: reverted, notifError: errText(err) });
+      });
+  }
+  pmAction(promise) {
+    var self = this;
+    if (this.state.pmBusy) return;
+    this.setState({ pmBusy: true, pmError: "", pmFieldError: null });
+    promise()
+      .then(function (methods) {
+        self.setState({ pm: methods || [], pmBusy: false, pmAdding: false, pmForm: EMPTY_PM });
+      })
+      .catch(function (err) {
+        self.setState({ pmBusy: false, pmError: errText(err) });
+      });
+  }
+  savePaymentMethod() {
+    var self = this;
+    var f = this.state.pmForm;
+    if (this.state.pmBusy) return;
+    var fail = function (field, message) {
+      self.setState({ pmFieldError: { field: field, message: message } });
+    };
+    var body;
+    if (f.kind === "telebirr") {
+      if (!f.phone.trim()) return fail("phone", "Enter the Telebirr phone number.");
+      body = { kind: "telebirr", phone: f.phone.trim() };
+    } else {
+      if (!/^\d{4}$/.test(f.last4.trim())) return fail("last4", "Enter the last four digits of the card.");
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(f.expiry.trim())) return fail("expiry", "Enter the expiry as MM/YY.");
+      body = { kind: "card", brand: f.brand, last4: f.last4.trim(), expiry: f.expiry.trim(), holder: f.holder.trim() || undefined };
+    }
+    this.setState({ pmBusy: true, pmError: "", pmFieldError: null });
+    paymentMethods
+      .add(body)
+      .then(function (methods) {
+        self.setState({ pm: methods || [], pmBusy: false, pmAdding: false, pmForm: EMPTY_PM });
+      })
+      .catch(function (err) {
+        if (err && err.field) self.setState({ pmBusy: false, pmFieldError: { field: err.field, message: errText(err) } });
+        else self.setState({ pmBusy: false, pmFieldError: { field: "", message: errText(err) } });
+      });
+  }
+  saveProfile() {
+    var self = this;
+    var p = this.state.profile;
+    if (this.state.profileBusy) return;
+    if (!p.name.trim()) {
+      this.setState({ profileError: { field: "name", message: "Enter your name." } });
+      return;
+    }
+    this.setState({ profileBusy: true, profileDone: false, profileError: null });
+    auth
+      .updateProfile({ name: p.name.trim(), email: p.email.trim(), phone: p.phone.trim() })
+      .then(function (user) {
+        self.setState({
+          profileBusy: false,
+          profileDone: true,
+          profile: { name: user.name || "", phone: user.phone || "", email: user.email || "" },
+        });
+        clearTimeout(self.profileT);
+        self.profileT = setTimeout(function () {
+          self.setState({ profileDone: false });
+        }, 2000);
+      })
+      .catch(function (err) {
+        self.setState({ profileBusy: false, profileError: { field: (err && err.field) || "", message: errText(err) } });
+      });
+  }
+  savePassword(hasPassword) {
+    var self = this;
+    var f = this.state.pw;
+    if (this.state.pwBusy) return;
+    var fail = function (field, message) {
+      self.setState({ pwError: { field: field, message: message } });
+    };
+    if (hasPassword && !f.current) return fail("current", "Enter your current password.");
+    if (f.password.length < 8) return fail("password", "Use at least 8 characters.");
+    if (f.password !== f.confirm) return fail("confirm", "The passwords don't match.");
+    this.setState({ pwBusy: true, pwDone: false, pwError: null });
+    auth
+      .changePassword(hasPassword ? f.current : "", f.password)
+      .then(function () {
+        self.setState({ pwBusy: false, pwDone: true, pw: EMPTY_PW });
+        clearTimeout(self.pwT);
+        self.pwT = setTimeout(function () {
+          self.setState({ pwDone: false });
+        }, 2500);
+      })
+      .catch(function (err) {
+        var field = (err && err.field) || "";
+        if (field === "new" || field === "newPassword") field = "password";
+        self.setState({ pwBusy: false, pwError: { field: field, message: errText(err) } });
+      });
   }
   extendItem(item) {
     var self = this;
@@ -256,12 +422,10 @@ class Component extends React.Component {
     var section = s.section || "overview";
 
     var products = init.products || [];
-    var byName = {};
-    products.forEach(function (p) {
-      byName[p.name] = p;
-    });
-    var hrefOf = function (name) {
-      return byName[name] ? "/product/" + byName[name].id : "/shop";
+    var store = storeVals(shop);
+    // Order items carry the product slug and the day rate they were booked at.
+    var hrefOf = function (item) {
+      return item && item.productSlug ? "/product/" + item.productSlug : "/shop";
     };
 
     var is = {};
@@ -304,8 +468,7 @@ class Component extends React.Component {
     var pickup = s.pickup || {};
     var decorateRental = function (x) {
       var r = x.item;
-      var p = byName[r.name];
-      var rate = (p && p.rent) || (r.extendedDays ? Math.round((r.extraCharge || 0) / r.extendedDays) : 0);
+      var rate = r.rentRate || (r.extendedDays ? Math.round((r.extraCharge || 0) / r.extendedDays) : 0);
       var start = dayNo(r.rentStart);
       var end = dayNo(r.rentEnd);
       var total = Math.max(1, end - start);
@@ -322,7 +485,7 @@ class Component extends React.Component {
         name: r.name,
         kind: r.kind,
         bg: r.bg,
-        href: hrefOf(r.name),
+        href: hrefOf(r),
         end: end,
         startDay: start,
         started: started,
@@ -351,6 +514,7 @@ class Component extends React.Component {
         extendText: busy ? "Extending… · " : "Extend +1 day · ",
         extendShort: busy ? "Extending…" : "Extend +1 day",
         window: x.order.deliveryWindow,
+        pickupTime: x.order.deliveryWindow || "9am – 8pm",
         extend: function () {
           self.extendItem(r);
         },
@@ -461,6 +625,14 @@ class Component extends React.Component {
       var n = o.items.length;
       var first = o.items[0];
       var inProgress = key === "out" || key === "processing";
+      var pay = o.payment || {};
+      var payKey = PAY_STATUS[pay.status] ? pay.status : "pending";
+      var payStatus =
+        payKey === "pending" && pay.method === "cod"
+          ? Object.assign({}, PAY_STATUS.pending, { label: "Pay on delivery" })
+          : PAY_STATUS[payKey];
+      var paying = s.payBusy === o.id;
+      var payErr = s.payError && s.payError.id === o.id ? s.payError.message : "";
       return {
         id: o.id,
         no: o.number,
@@ -489,9 +661,17 @@ class Component extends React.Component {
           (METHOD[o.payment.method] || o.payment.method),
         steps: steps,
         cta: key === "delivered" || key === "cancelled" ? "Buy again" : "View items",
-        ctaHref: key === "delivered" || key === "cancelled" ? (first ? hrefOf(first.name) : "/shop") : "/order-confirmed/" + o.id,
+        ctaHref: key === "delivered" || key === "cancelled" ? hrefOf(first) : "/order-confirmed/" + o.id,
         trackText: inProgress ? "Track" : "Details",
         trackLabel: (inProgress ? "Track order " : "Order details ") + o.number,
+        payStatus: payStatus,
+        payable: !!pay.payable && !cancelled,
+        paying: paying,
+        payLabel: paying ? "Opening payment…" : "Pay now",
+        payError: payErr,
+        payNow: function () {
+          self.payNow(o);
+        },
         toggle: function () {
           self.setState({ openOrder: self.state.openOrder === o.id ? null : o.id });
         },
@@ -676,7 +856,7 @@ class Component extends React.Component {
       return a.isDefault;
     })[0];
 
-    // Settings
+    // Settings: notifications (saved on each toggle)
     var nstate = s.notif || {};
     var notif = NOTIF.map(function (n) {
       var on = !!nstate[n.id];
@@ -687,9 +867,167 @@ class Component extends React.Component {
         track: on ? "#2F7A3C" : "#C9C6BE",
         knob: on ? "25px" : "3px",
         toggle: function () {
-          var x = Object.assign({}, self.state.notif);
-          x[n.id] = !x[n.id];
-          self.setState({ notif: x });
+          self.toggleNotif(n.id);
+        },
+      };
+    });
+
+    // Settings: profile
+    var prof = s.profile || { name: "", phone: "", email: "" };
+    var profErr = s.profileError || null;
+    var profField = function (k) {
+      return function (e) {
+        var p = Object.assign({}, self.state.profile);
+        p[k] = e.target.value;
+        self.setState({ profile: p, profileError: null, profileDone: false });
+      };
+    };
+    var profileForm = {
+      name: prof.name,
+      phone: prof.phone,
+      email: prof.email,
+      on: profField,
+      busy: !!s.profileBusy,
+      saveLabel: s.profileBusy ? "Saving…" : s.profileDone ? "Saved" : "Save changes",
+      saveBg: s.profileDone ? "#276833" : "#2F7A3C",
+      errorFor: function (k) {
+        return profErr && profErr.field === k ? profErr.message : "";
+      },
+      error: profErr && ["name", "phone", "email"].indexOf(profErr.field) < 0 ? profErr.message : "",
+      save: function (e) {
+        if (e) e.preventDefault();
+        self.saveProfile();
+      },
+    };
+
+    // Settings: password
+    var hasPassword = !!user.hasPassword;
+    var pw = s.pw || EMPTY_PW;
+    var pwErr = s.pwError || null;
+    var pwField = function (k) {
+      return function (e) {
+        var p = Object.assign({}, self.state.pw);
+        p[k] = e.target.value;
+        self.setState({ pw: p, pwError: null, pwDone: false });
+      };
+    };
+    var passwordForm = {
+      hasPassword: hasPassword,
+      title: hasPassword ? "Change password" : "Set a password",
+      intro: hasPassword
+        ? "Use at least 8 characters."
+        : (user.google ? "You sign in with Google" : "You sign in with a code sent to your phone") +
+          ". Add a password to sign in with your email or phone too.",
+      current: pw.current,
+      password: pw.password,
+      confirm: pw.confirm,
+      on: pwField,
+      busy: !!s.pwBusy,
+      saveLabel: s.pwBusy
+        ? "Saving…"
+        : s.pwDone
+          ? hasPassword
+            ? "Password updated"
+            : "Password set"
+          : hasPassword
+            ? "Update password"
+            : "Set password",
+      saveBg: s.pwDone ? "#276833" : "#2F7A3C",
+      errorFor: function (k) {
+        return pwErr && pwErr.field === k ? pwErr.message : "";
+      },
+      error: pwErr && ["current", "password", "confirm"].indexOf(pwErr.field) < 0 ? pwErr.message : "",
+      save: function (e) {
+        if (e) e.preventDefault();
+        self.savePassword(hasPassword);
+      },
+    };
+
+    // Payment methods
+    var pmForm = s.pmForm || EMPTY_PM;
+    var pmFieldErr = s.pmFieldError || null;
+    var pmField = function (k) {
+      return function (e) {
+        var f = Object.assign({}, self.state.pmForm);
+        f[k] = e.target.value;
+        self.setState({ pmForm: f, pmFieldError: null });
+      };
+    };
+    var pmKinds = [
+      { id: "telebirr", label: "Telebirr" },
+      { id: "card", label: "Card" },
+    ].map(function (k) {
+      var on = pmForm.kind === k.id;
+      return {
+        label: k.label,
+        aria: on ? "true" : "false",
+        bg: on ? "#0D4F8B" : "transparent",
+        fg: on ? "#FFFFFF" : "#0D4F8B",
+        pick: function () {
+          self.setState({ pmForm: Object.assign({}, self.state.pmForm, { kind: k.id }), pmFieldError: null });
+        },
+      };
+    });
+    var pmBrands = ["Visa", "Mastercard"].map(function (b) {
+      var on = pmForm.brand === b;
+      return {
+        label: b,
+        aria: on ? "true" : "false",
+        bg: on ? "#0D4F8B" : "transparent",
+        fg: on ? "#FFFFFF" : "#0D4F8B",
+        pick: function () {
+          self.setState({ pmForm: Object.assign({}, self.state.pmForm, { brand: b }), pmFieldError: null });
+        },
+      };
+    });
+    var pmAddForm = {
+      isTelebirr: pmForm.kind === "telebirr",
+      isCard: pmForm.kind === "card",
+      kinds: pmKinds,
+      brands: pmBrands,
+      phone: pmForm.phone,
+      last4: pmForm.last4,
+      expiry: pmForm.expiry,
+      holder: pmForm.holder,
+      on: pmField,
+      busy: !!s.pmBusy,
+      cardNote: CARD_NOTE,
+      saveLabel: s.pmBusy ? "Saving…" : pmForm.kind === "telebirr" ? "Save Telebirr number" : "Save card",
+      errorFor: function (k) {
+        return pmFieldErr && pmFieldErr.field === k ? pmFieldErr.message : "";
+      },
+      error: pmFieldErr && ["phone", "last4", "expiry", "holder", "brand"].indexOf(pmFieldErr.field) < 0 ? pmFieldErr.message : "",
+      save: function (e) {
+        if (e) e.preventDefault();
+        self.savePaymentMethod();
+      },
+      cancel: set({ pmAdding: false, pmForm: EMPTY_PM, pmFieldError: null }),
+    };
+    var pmList = (s.pm || []).map(function (m) {
+      var tele = m.kind === "telebirr";
+      var d = !!m.isDefault;
+      var brand = (m.brand || "Card").toUpperCase();
+      return {
+        id: m.id,
+        isTelebirr: tele,
+        isCard: !tele,
+        brand: brand,
+        brandFg: brand === "VISA" ? "#1A1F71" : brand === "MASTERCARD" ? "#EB001B" : "#0D4F8B",
+        brandItalic: brand === "VISA" ? "italic" : "normal",
+        sub: tele ? "Mobile money" : "Expires " + (m.expiry || "—"),
+        main: tele ? m.phone || "" : "•••• " + (m.last4 || "····"),
+        holder: !tele && m.holder ? m.holder : "",
+        isDefault: d,
+        notDefault: !d,
+        makeDefault: function () {
+          self.pmAction(function () {
+            return paymentMethods.update(m.id, { isDefault: true });
+          });
+        },
+        remove: function () {
+          self.pmAction(function () {
+            return paymentMethods.remove(m.id);
+          });
         },
       };
     });
@@ -707,10 +1045,12 @@ class Component extends React.Component {
       firstName: firstName,
       initials: hv.userInitials,
       memberSince: "Member since " + local(user.createdAt || init.today).getUTCFullYear(),
-      userPhone: user.phone || "",
-      userEmail: user.email || "",
-      telebirrPhone: user.phone || "Not added",
       refundTo: user.phone ? "To Telebirr " + user.phone : "To your payment method",
+      storeCity: store.city,
+      storePhone: store.phone,
+      storeTel: "tel:" + String(store.phone || "").replace(/[^\d+]/g, ""),
+      depositDays: plural(store.depositRefundDays, "working day"),
+      freeOver: fmt(FREE_DELIVERY_THRESHOLD),
       signOut: function (e) {
         if (e) e.preventDefault();
         auth
@@ -760,9 +1100,19 @@ class Component extends React.Component {
         addrError: "",
         addrForm: Object.assign({}, EMPTY_ADDR, { phone: user.phone || "", city: defaultAddr ? defaultAddr.city : "" }),
       }),
-      profileNote: s.profileNote || "",
-      saveProfile: set({ profileNote: "Profile changes can't be saved online yet. Contact support to update your details." }),
+      profileForm: profileForm,
+      passwordForm: passwordForm,
       notif: notif,
+      notifError: s.notifError || "",
+      pmList: pmList,
+      noPm: pmList.length === 0,
+      pmAdding: !!s.pmAdding,
+      notPmAdding: !s.pmAdding,
+      pmBusy: !!s.pmBusy,
+      pmError: s.pmError || "",
+      pmAddForm: pmAddForm,
+      startPm: set({ pmAdding: true, pmForm: Object.assign({}, EMPTY_PM, { phone: user.phone || "" }), pmFieldError: null, pmError: "" }),
+      cardNote: CARD_NOTE,
       cartCount: hv.cartCount,
       cartTotal: hv.cartTotal,
     };
@@ -864,8 +1214,141 @@ function AddressForm({ f, idp }) {
   );
 }
 
-function preventSubmit(e) {
-  e.preventDefault();
+var FIELD_ERR = { fontSize: "12px", color: "#B02418" };
+var SEG_WRAP = { display: "flex", gap: "2px", padding: "3px", background: "#EAF3FA", borderRadius: "12px", alignSelf: "flex-start" };
+function segStyle(x) {
+  return {
+    height: "30px",
+    padding: "0 14px",
+    border: "none",
+    borderRadius: "9px",
+    background: x.bg,
+    color: x.fg,
+    font: "inherit",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+  };
+}
+function FieldError({ text }) {
+  return text ? (
+    <span role="alert" style={FIELD_ERR}>
+      {text}
+    </span>
+  ) : null;
+}
+
+// Inline form for a new Telebirr number or card reminder (same field styles as the address form).
+function PaymentMethodForm({ f, idp }) {
+  return (
+    <form onSubmit={f.save} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div role="group" aria-label="Payment method type" style={SEG_WRAP}>
+        {(f.kinds || []).map((k, i0) => (
+          <Fragment key={i0}>
+            <button type="button" onClick={k.pick} aria-pressed={k.aria} style={segStyle(k)}>
+              {k.label}
+            </button>
+          </Fragment>
+        ))}
+      </div>
+      {f.isTelebirr ? (
+        <label htmlFor={idp + "-phone"} style={FIELD_LABEL}>
+          Telebirr phone number
+          <input id={idp + "-phone"} type="tel" placeholder="09XX XXX XXX" value={f.phone} onChange={f.on("phone")} style={FIELD} />
+          <FieldError text={f.errorFor("phone")} />
+        </label>
+      ) : null}
+      {f.isCard ? (
+        <>
+          <span style={FIELD_LABEL}>
+            Card brand
+            <span role="group" aria-label="Card brand" style={SEG_WRAP}>
+              {(f.brands || []).map((b, i0) => (
+                <Fragment key={i0}>
+                  <button type="button" onClick={b.pick} aria-pressed={b.aria} style={segStyle(b)}>
+                    {b.label}
+                  </button>
+                </Fragment>
+              ))}
+            </span>
+          </span>
+          <label htmlFor={idp + "-last4"} style={FIELD_LABEL}>
+            Last 4 digits
+            <input
+              id={idp + "-last4"}
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="1234"
+              value={f.last4}
+              onChange={f.on("last4")}
+              style={FIELD}
+            />
+            <FieldError text={f.errorFor("last4")} />
+          </label>
+          <label htmlFor={idp + "-expiry"} style={FIELD_LABEL}>
+            Expiry (MM/YY)
+            <input
+              id={idp + "-expiry"}
+              type="text"
+              maxLength={5}
+              placeholder="MM/YY"
+              value={f.expiry}
+              onChange={f.on("expiry")}
+              style={FIELD}
+            />
+            <FieldError text={f.errorFor("expiry")} />
+          </label>
+          <label htmlFor={idp + "-holder"} style={FIELD_LABEL}>
+            Name on card
+            <input id={idp + "-holder"} type="text" value={f.holder} onChange={f.on("holder")} style={FIELD} />
+            <FieldError text={f.errorFor("holder")} />
+          </label>
+          <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>{f.cardNote}</span>
+        </>
+      ) : null}
+      <FieldError text={f.error} />
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          type="submit"
+          className="btn-y"
+          disabled={f.busy}
+          style={{
+            height: "44px",
+            padding: "0 14px",
+            border: "none",
+            borderRadius: "12px",
+            background: "#2F7A3C",
+            color: "#FFFFFF",
+            font: "inherit",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer",
+          }}
+        >
+          {f.saveLabel}
+        </button>
+        <button
+          type="button"
+          onClick={f.cancel}
+          style={{
+            height: "44px",
+            padding: "0 14px",
+            border: "none",
+            borderRadius: "12px",
+            background: "transparent",
+            font: "inherit",
+            fontSize: "13px",
+            fontWeight: "700",
+            color: "#0D4F8B",
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
 }
 
 const CSS =
@@ -937,7 +1420,7 @@ export default class AccountScreen extends Component {
                   <circle cx="12" cy="9.5" r="2.5" />
                 </svg>
                 Deliver to
-                <strong>[CITY]</strong>
+                <strong>{vals.storeCity}</strong>
                 <svg
                   width="12"
                   height="12"
@@ -967,19 +1450,20 @@ export default class AccountScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over ETB [X]
+                {"Free delivery on orders over "}
+                {vals.freeOver}
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/p/sell-with-us" style={{ color: "#E6F0F9" }}>
                 Sell or list with us
-              </a>
-              <Link href="/account" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href="/track" style={{ color: "#E6F0F9" }}>
                 Track order
               </Link>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/p/help" style={{ color: "#E6F0F9" }}>
                 Help
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 English
               </a>
@@ -1355,7 +1839,7 @@ export default class AccountScreen extends Component {
               </svg>
               Rent anything
             </Link>
-            <Link href="/shop" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
+            <Link href="/shop?deals=1" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
               <svg
                 width="15"
                 height="15"
@@ -1813,14 +2297,18 @@ export default class AccountScreen extends Component {
                 </span>
                 <span style={{ fontSize: "16px", fontWeight: "700" }}>Need a hand?</span>
                 <span style={{ fontSize: "14px", lineHeight: "1.5", color: "#5E6470" }}>
-                  Our team can change a delivery, extend a rental or sort a return.
+                  {"Our team can change a delivery, extend a rental or sort a return. Call "}
+                  <a href={vals.storeTel} style={{ color: "#0D4F8B", fontWeight: "700" }}>
+                    {vals.storePhone}
+                  </a>
+                  .
                 </span>
-                <a
-                  href="#"
+                <Link
+                  href="/p/contact"
                   style={{ fontSize: "14px", fontWeight: "700", color: "#0D4F8B", textDecoration: "underline", textUnderlineOffset: "4px" }}
                 >
                   Chat with support
-                </a>
+                </Link>
               </div>
             </aside>
             <section
@@ -2473,7 +2961,7 @@ export default class AccountScreen extends Component {
                                       <path d="M5 12l5 5 9-10" />
                                     </svg>
                                     {"Pickup "}
-                                    {r.endShort}, [TIME]
+                                    {r.endShort}, {r.pickupTime}
                                   </button>
                                 </>
                               ) : null}
@@ -2759,7 +3247,9 @@ export default class AccountScreen extends Component {
                         ) : null}
                       </ul>
                       <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
-                        Deposits are returned within [N] working days of the item passing inspection.
+                        {"Deposits are returned within "}
+                        {vals.depositDays}
+                        {" of the item passing inspection."}
                       </span>
                     </div>
                     <Link
@@ -3105,8 +3595,28 @@ export default class AccountScreen extends Component {
                                 }}
                               >
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                  <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
-                                    {o.headline}
+                                  <span style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                                    <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                      {o.headline}
+                                    </span>
+                                    <span
+                                      style={{
+                                        height: "28px",
+                                        padding: "0 11px",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "7px",
+                                        borderRadius: "999px",
+                                        background: o.payStatus.bg,
+                                        color: o.payStatus.fg,
+                                        fontSize: "12px",
+                                        fontWeight: "700",
+                                      }}
+                                      suppressHydrationWarning
+                                    >
+                                      <span style={{ width: "7px", height: "7px", borderRadius: "999px", background: o.payStatus.dot }} />
+                                      {o.payStatus.label}
+                                    </span>
                                   </span>
                                   <span style={{ fontSize: "13px", color: "#5E6470" }}>{o.trackingNo}</span>
                                 </div>
@@ -3210,8 +3720,37 @@ export default class AccountScreen extends Component {
                                     {o.where}
                                   </span>
                                   <div style={{ display: "flex", gap: "10px" }}>
-                                    <a
-                                      href="#"
+                                    {o.payError ? (
+                                      <span role="alert" style={{ fontSize: "12px", color: "#B02418", alignSelf: "center" }}>
+                                        {o.payError}
+                                      </span>
+                                    ) : null}
+                                    {o.payable ? (
+                                      <button
+                                        type="button"
+                                        className="btn-y"
+                                        onClick={o.payNow}
+                                        disabled={o.paying}
+                                        style={{
+                                          height: "44px",
+                                          padding: "0 16px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          border: "none",
+                                          borderRadius: "12px",
+                                          background: "#2F7A3C",
+                                          color: "#FFFFFF",
+                                          font: "inherit",
+                                          fontSize: "13px",
+                                          fontWeight: "700",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        {o.payLabel}
+                                      </button>
+                                    ) : null}
+                                    <Link
+                                      href="/p/contact"
                                       style={{
                                         height: "44px",
                                         padding: "0 16px",
@@ -3225,7 +3764,7 @@ export default class AccountScreen extends Component {
                                       }}
                                     >
                                       Get help
-                                    </a>
+                                    </Link>
                                     <Link
                                       href={o.ctaHref}
                                       className="btn-t"
@@ -3602,7 +4141,7 @@ export default class AccountScreen extends Component {
                                         <path d="M5 12l5 5 9-10" />
                                       </svg>
                                       {"Pickup "}
-                                      {r.endShort}, [TIME]
+                                      {r.endShort}, {r.pickupTime}
                                     </button>
                                   </>
                                 ) : null}
@@ -4329,129 +4868,166 @@ export default class AccountScreen extends Component {
                     </h1>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }} data-cols="3">
-                    <div
-                      style={{
-                        height: "200px",
-                        boxSizing: "border-box",
-                        borderRadius: "24px",
-                        padding: "24px",
-                        background: "#1F7A45",
-                        color: "#FFFFFF",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span
+                    {(vals.pmList || []).map((m, i0) => (
+                      <Fragment key={i0}>
+                        <div
                           style={{
-                            height: "30px",
-                            padding: "0 12px",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "8px",
-                            background: "#FFFFFF",
-                            color: "#1F7A45",
-                            fontSize: "12px",
-                            fontWeight: "800",
-                          }}
-                        >
-                          TELEBIRR
-                        </span>
-                        <span
-                          style={{
-                            height: "26px",
-                            padding: "0 10px",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "999px",
-                            background: "rgba(255,255,255,0.18)",
-                            fontSize: "12px",
-                            fontWeight: "700",
-                          }}
-                        >
-                          Default
-                        </span>
-                      </div>
-                      <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <span style={{ fontSize: "13px", color: "#D5F0DE" }}>Mobile money</span>
-                        <span
-                          style={{
-                            fontFamily: "'Bricolage Grotesque', sans-serif",
-                            fontSize: "24px",
-                            fontWeight: "700",
-                            letterSpacing: "-0.02em",
-                          }}
-                          suppressHydrationWarning
-                        >
-                          {vals.telebirrPhone}
-                        </span>
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: "200px",
-                        boxSizing: "border-box",
-                        borderRadius: "24px",
-                        padding: "24px",
-                        background: "#0D4F8B",
-                        color: "#FFFFFF",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span
-                          style={{
-                            height: "30px",
-                            padding: "0 12px",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "8px",
-                            background: "#FFFFFF",
-                            color: "#1A1F71",
-                            fontSize: "12px",
-                            fontWeight: "800",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          VISA
-                        </span>
-                        <button
-                          type="button"
-                          style={{
-                            height: "44px",
-                            padding: "0 12px",
-                            border: "1px solid rgba(255,255,255,0.35)",
-                            borderRadius: "12px",
-                            background: "transparent",
+                            height: "200px",
+                            boxSizing: "border-box",
+                            borderRadius: "24px",
+                            padding: "24px",
+                            background: m.isTelebirr ? "#1F7A45" : "#0D4F8B",
                             color: "#FFFFFF",
-                            font: "inherit",
-                            fontSize: "13px",
-                            fontWeight: "700",
-                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
                           }}
                         >
-                          Remove
-                        </button>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span
+                              style={{
+                                height: "30px",
+                                padding: "0 12px",
+                                display: "flex",
+                                alignItems: "center",
+                                borderRadius: "8px",
+                                background: "#FFFFFF",
+                                color: m.isTelebirr ? "#1F7A45" : m.brandFg,
+                                fontSize: "12px",
+                                fontWeight: "800",
+                                fontStyle: m.isTelebirr ? "normal" : m.brandItalic,
+                              }}
+                              suppressHydrationWarning
+                            >
+                              {m.isTelebirr ? "TELEBIRR" : m.brand}
+                            </span>
+                            <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              {m.isDefault ? (
+                                <span
+                                  style={{
+                                    height: "26px",
+                                    padding: "0 10px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    borderRadius: "999px",
+                                    background: "rgba(255,255,255,0.18)",
+                                    fontSize: "12px",
+                                    fontWeight: "700",
+                                  }}
+                                >
+                                  Default
+                                </span>
+                              ) : null}
+                              {m.notDefault ? (
+                                <button
+                                  type="button"
+                                  onClick={m.makeDefault}
+                                  disabled={vals.pmBusy}
+                                  style={{
+                                    height: "44px",
+                                    padding: "0 12px",
+                                    border: "1px solid rgba(255,255,255,0.35)",
+                                    borderRadius: "12px",
+                                    background: "transparent",
+                                    color: "#FFFFFF",
+                                    font: "inherit",
+                                    fontSize: "13px",
+                                    fontWeight: "700",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Set as default
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={m.remove}
+                                disabled={vals.pmBusy}
+                                aria-label={`Remove ${m.isTelebirr ? "Telebirr " + m.main : m.brand + " " + m.main}`}
+                                style={{
+                                  height: "44px",
+                                  padding: "0 12px",
+                                  border: "1px solid rgba(255,255,255,0.35)",
+                                  borderRadius: "12px",
+                                  background: "transparent",
+                                  color: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "13px",
+                                  fontWeight: "700",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </span>
+                          </div>
+                          <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <span style={{ fontSize: "13px", color: m.isTelebirr ? "#D5F0DE" : "#CFE2F3" }} suppressHydrationWarning>
+                              {m.sub}
+                            </span>
+                            <span
+                              style={{
+                                fontFamily: "'Bricolage Grotesque', sans-serif",
+                                fontSize: "24px",
+                                fontWeight: "700",
+                                letterSpacing: m.isTelebirr ? "-0.02em" : "0.04em",
+                              }}
+                              suppressHydrationWarning
+                            >
+                              {m.main}
+                            </span>
+                            {m.holder ? (
+                              <span style={{ fontSize: "13px", color: "#CFE2F3" }} suppressHydrationWarning>
+                                {m.holder}
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </Fragment>
+                    ))}
+                    {vals.noPm && vals.notPmAdding ? (
+                      <div
+                        style={{
+                          height: "200px",
+                          boxSizing: "border-box",
+                          borderRadius: "24px",
+                          padding: "24px",
+                          border: "1.5px dashed #E6E4DE",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          color: "#5E6470",
+                          fontSize: "15px",
+                          textAlign: "center",
+                        }}
+                      >
+                        <span style={{ fontSize: "17px", fontWeight: "700", color: "#111318" }}>No saved payment methods</span>
+                        Save a Telebirr number or a card reminder to pick it at checkout.
                       </div>
-                      <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <span style={{ fontSize: "13px", color: "#CFE2F3" }}>Expires [MM/YY]</span>
-                        <span
-                          style={{
-                            fontFamily: "'Bricolage Grotesque', sans-serif",
-                            fontSize: "24px",
-                            fontWeight: "700",
-                            letterSpacing: "0.04em",
-                          }}
-                        >
-                          •••• [LAST4]
-                        </span>
-                      </span>
-                    </div>
+                    ) : null}
+                    {vals.pmAdding ? (
+                      <div
+                        style={{
+                          gridColumn: "1 / -1",
+                          border: "1px solid #BFD8EE",
+                          borderRadius: "24px",
+                          padding: "24px",
+                          background: "#FFFFFF",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                        }}
+                      >
+                        <span style={{ fontSize: "16px", fontWeight: "700" }}>Add card or Telebirr number</span>
+                        <PaymentMethodForm f={vals.pmAddForm} idp="pm-new" />
+                      </div>
+                    ) : null}
                     <button
                       type="button"
+                      onClick={vals.startPm}
+                      disabled={vals.pmAdding}
                       style={{
                         height: "200px",
                         border: "1.5px dashed #C9C6BE",
@@ -4496,6 +5072,11 @@ export default class AccountScreen extends Component {
                       Add card or Telebirr number
                     </button>
                   </div>
+                  {vals.pmError ? (
+                    <span role="alert" style={{ fontSize: "12px", color: "#B02418" }}>
+                      {vals.pmError}
+                    </span>
+                  ) : null}
                   <div
                     style={{
                       display: "flex",
@@ -4522,7 +5103,7 @@ export default class AccountScreen extends Component {
                       <rect x="4" y="10" width="16" height="11" rx="2" />
                       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                     </svg>
-                    Card details are stored by our payment provider. Simbatech never sees your full card number.
+                    {vals.cardNote}
                   </div>
                 </>
               ) : null}
@@ -4557,7 +5138,7 @@ export default class AccountScreen extends Component {
                         flexDirection: "column",
                         gap: "16px",
                       }}
-                      onSubmit={preventSubmit}
+                      onSubmit={vals.profileForm.save}
                     >
                       <h2
                         style={{
@@ -4579,7 +5160,8 @@ export default class AccountScreen extends Component {
                           id="s-name"
                           type="text"
                           placeholder="Full name"
-                          defaultValue={vals.userName}
+                          value={vals.profileForm.name}
+                          onChange={vals.profileForm.on("name")}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4591,6 +5173,7 @@ export default class AccountScreen extends Component {
                             color: "#111318",
                           }}
                         />
+                        <FieldError text={vals.profileForm.errorFor("name")} />
                       </label>
                       <label
                         htmlFor="s-phone"
@@ -4601,7 +5184,8 @@ export default class AccountScreen extends Component {
                           id="s-phone"
                           type="tel"
                           placeholder="09XX XXX XXX"
-                          defaultValue={vals.userPhone}
+                          value={vals.profileForm.phone}
+                          onChange={vals.profileForm.on("phone")}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4613,6 +5197,7 @@ export default class AccountScreen extends Component {
                             color: "#111318",
                           }}
                         />
+                        <FieldError text={vals.profileForm.errorFor("phone")} />
                       </label>
                       <label
                         htmlFor="s-email"
@@ -4623,7 +5208,8 @@ export default class AccountScreen extends Component {
                           id="s-email"
                           type="email"
                           placeholder="you@example.com"
-                          defaultValue={vals.userEmail}
+                          value={vals.profileForm.email}
+                          onChange={vals.profileForm.on("email")}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4635,32 +5221,30 @@ export default class AccountScreen extends Component {
                             color: "#111318",
                           }}
                         />
+                        <FieldError text={vals.profileForm.errorFor("email")} />
                       </label>
                       <button
-                        type="button"
+                        type="submit"
                         className="btn-y"
-                        onClick={vals.saveProfile}
+                        disabled={vals.profileForm.busy}
                         style={{
                           alignSelf: "flex-start",
                           height: "48px",
                           padding: "0 22px",
                           border: "none",
                           borderRadius: "14px",
-                          background: "#2F7A3C",
+                          background: vals.profileForm.saveBg,
                           color: "#FFFFFF",
                           font: "inherit",
                           fontSize: "14px",
                           fontWeight: "700",
                           cursor: "pointer",
                         }}
+                        suppressHydrationWarning
                       >
-                        Save changes
+                        {vals.profileForm.saveLabel}
                       </button>
-                      {vals.profileNote ? (
-                        <span role="status" style={{ fontSize: "12px", color: "#5E6470" }}>
-                          {vals.profileNote}
-                        </span>
-                      ) : null}
+                      <FieldError text={vals.profileForm.error} />
                     </form>
                     <div
                       style={{
@@ -4751,7 +5335,131 @@ export default class AccountScreen extends Component {
                           </div>
                         </Fragment>
                       ))}
+                      <FieldError text={vals.notifError} />
                     </div>
+                    <form
+                      style={{
+                        border: "1px solid #EFEDE8",
+                        borderRadius: "28px",
+                        padding: "28px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "16px",
+                      }}
+                      onSubmit={vals.passwordForm.save}
+                    >
+                      <h2
+                        style={{
+                          margin: "0 0 4px",
+                          fontFamily: "'Bricolage Grotesque', sans-serif",
+                          fontSize: "22px",
+                          fontWeight: "700",
+                          letterSpacing: "-0.03em",
+                        }}
+                        suppressHydrationWarning
+                      >
+                        {vals.passwordForm.title}
+                      </h2>
+                      <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                        {vals.passwordForm.intro}
+                      </span>
+                      {vals.passwordForm.hasPassword ? (
+                        <label
+                          htmlFor="s-pw-current"
+                          style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: "600" }}
+                        >
+                          Current password
+                          <input
+                            id="s-pw-current"
+                            type="password"
+                            autoComplete="current-password"
+                            value={vals.passwordForm.current}
+                            onChange={vals.passwordForm.on("current")}
+                            style={{
+                              height: "50px",
+                              boxSizing: "border-box",
+                              padding: "0 16px",
+                              border: "1px solid #E6E4DE",
+                              borderRadius: "14px",
+                              font: "inherit",
+                              fontSize: "15px",
+                              color: "#111318",
+                            }}
+                          />
+                          <FieldError text={vals.passwordForm.errorFor("current")} />
+                        </label>
+                      ) : null}
+                      <label
+                        htmlFor="s-pw-new"
+                        style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: "600" }}
+                      >
+                        New password
+                        <input
+                          id="s-pw-new"
+                          type="password"
+                          autoComplete="new-password"
+                          value={vals.passwordForm.password}
+                          onChange={vals.passwordForm.on("password")}
+                          style={{
+                            height: "50px",
+                            boxSizing: "border-box",
+                            padding: "0 16px",
+                            border: "1px solid #E6E4DE",
+                            borderRadius: "14px",
+                            font: "inherit",
+                            fontSize: "15px",
+                            color: "#111318",
+                          }}
+                        />
+                        <FieldError text={vals.passwordForm.errorFor("password")} />
+                      </label>
+                      <label
+                        htmlFor="s-pw-confirm"
+                        style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: "600" }}
+                      >
+                        Confirm new password
+                        <input
+                          id="s-pw-confirm"
+                          type="password"
+                          autoComplete="new-password"
+                          value={vals.passwordForm.confirm}
+                          onChange={vals.passwordForm.on("confirm")}
+                          style={{
+                            height: "50px",
+                            boxSizing: "border-box",
+                            padding: "0 16px",
+                            border: "1px solid #E6E4DE",
+                            borderRadius: "14px",
+                            font: "inherit",
+                            fontSize: "15px",
+                            color: "#111318",
+                          }}
+                        />
+                        <FieldError text={vals.passwordForm.errorFor("confirm")} />
+                      </label>
+                      <button
+                        type="submit"
+                        className="btn-y"
+                        disabled={vals.passwordForm.busy}
+                        style={{
+                          alignSelf: "flex-start",
+                          height: "48px",
+                          padding: "0 22px",
+                          border: "none",
+                          borderRadius: "14px",
+                          background: vals.passwordForm.saveBg,
+                          color: "#FFFFFF",
+                          font: "inherit",
+                          fontSize: "14px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                        suppressHydrationWarning
+                      >
+                        {vals.passwordForm.saveLabel}
+                      </button>
+                      <FieldError text={vals.passwordForm.error} />
+                    </form>
                   </div>
                 </>
               ) : null}

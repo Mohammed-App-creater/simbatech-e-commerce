@@ -33,7 +33,10 @@ src/lib/pricing.ts          pricing rules mirrored from the API, for live totals
 - **Accounts:** sign up / sign in with a phone number or email. The API keeps the session in an httpOnly cookie.
 - **Cart:** guests get a cart tied to their session; it merges into the account when they sign in.
 - **Pricing:** the API is authoritative; `src/lib/pricing.ts` has the same rules so cart and checkout can preview totals.
-- **Payments are simulated** in the API (no gateway yet). See the API README.
+- **Sign-in:** phone or email + password, phone with an SMS code, or Google (when the API has Google keys). Forgot-password works by email link or SMS code.
+- **Payments:** the API decides. With a Chapa key configured it answers checkout with a payment-page URL and the site sends the customer there (`finishCheckout` in the store); without one, online payments are recorded as paid immediately. Unpaid orders show a "Pay now" button.
+- **Store details** (city, phone, address, hours, policies) come from the API's Store settings (`initial.store` / `useStore()`), so the shop owner edits them in the admin.
+- **Content pages** at `/p/<slug>` (help, delivery, returns, rental terms, privacy, terms, about, careers, sell with us, contact), order tracking at `/track`, password reset at `/reset-password`.
 
 ### Layout
 

@@ -4,8 +4,18 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
-import { rentalBasePrice, rentalLinePrice } from "@/lib/pricing";
+import {
+  shopState,
+  connectShop,
+  headerVals,
+  submitSearch,
+  navigate,
+  storeVals,
+  cart,
+  wishlist,
+  reviews as reviewsApi,
+} from "@/lib/client/store";
+import { rentalBasePrice, rentalLinePrice, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup mirrors the original; data comes from `initial`.
@@ -22,38 +32,19 @@ var TABS = [
   { id: "terms", label: "Rental terms" },
   { id: "reviews", label: "Reviews ([N])" },
 ];
-// Camera spec sheet from the design; not modelled in the backend (other kinds get a generic table).
-var SPECS = [
-  ["Type", "Mirrorless camera"],
-  ["Video", "4K"],
-  ["Sensor", "[SPEC]"],
-  ["Resolution", "[SPEC] MP"],
-  ["Lens mount", "[SPEC]"],
-  ["Image stabilisation", "[SPEC]"],
-  ["Screen", "[SPEC]"],
-  ["Viewfinder", "[SPEC]"],
-  ["Battery life", "[SPEC] shots"],
-  ["Connectivity", "[SPEC]"],
-  ["Weight (body)", "[SPEC] g"],
-  ["Warranty", "[TERM]"],
-];
+// Rental terms copy from the design; the bracketed values are filled from the store settings and the product.
 var TERMS = [
   { title: "Deposit", body: "A refundable deposit of ETB [X] is held when you book and released within [N] days of collection." },
   { title: "Extending", body: "Need it longer? Extend from your account before the return date, at the same daily rate." },
   { title: "Damage", body: "[DAMAGE POLICY]. Add damage cover to lower your excess to ETB [X]." },
   { title: "Delivery & collection", body: "We deliver on your start date and collect on the return date, [TIME WINDOW]." },
 ];
-var DIST = [
-  { stars: 5, w: "78%" },
-  { stars: 4, w: "46%" },
-  { stars: 3, w: "24%" },
-  { stars: 2, w: "12%" },
-  { stars: 1, w: "6%" },
-];
+var DELIVERY_WINDOW = "9am – 8pm";
+var STAR_ON = "#F0AE00";
+var STAR_OFF = "#E6E4DE";
 var DUR_LABELS = { 1: "1 day", 3: "3 days", 7: "1 week", 14: "2 weeks" };
 var LOW_STOCK = 5;
 var RECENT_KEY = "st_recent";
-var CUTOFF_HOUR = 16;
 var WDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function fmt(n) {
@@ -96,6 +87,34 @@ function defaultPlanDays(p) {
   })[0];
   return (three || plans[0]).days;
 }
+function plural(n, word) {
+  return n + " " + (n === 1 ? word : word + "s");
+}
+// Fill colours for a 5-star row (rating rounded to the nearest star).
+function starFills(rating) {
+  var r = Math.round(parseFloat(rating) || 0);
+  return [1, 2, 3, 4, 5].map(function (n) {
+    return n <= r ? STAR_ON : STAR_OFF;
+  });
+}
+// "29 Sep 2026" — UTC fields so the server and client render the same text.
+function reviewDate(isoString) {
+  var d = new Date(isoString || "");
+  if (isNaN(d.getTime())) return "";
+  return d.getUTCDate() + " " + MON[d.getUTCMonth()] + " " + d.getUTCFullYear();
+}
+// The reviews shape when the page has none yet (mirrors reviews.list()).
+function emptyReviews(p) {
+  return {
+    rating: (p && p.rating) || "0.0",
+    count: (p && p.reviews) || 0,
+    distribution: [5, 4, 3, 2, 1].map(function (n) {
+      return { stars: n, count: 0, percent: 0 };
+    }),
+    items: [],
+    mine: null,
+  };
+}
 
 class Component extends React.Component {
   constructor(props) {
@@ -107,9 +126,11 @@ class Component extends React.Component {
     (initial.rentTogether || []).forEach(function (x) {
       fbt[x.id] = true;
     });
+    var variants = p.variants || [];
     this.state = {
       mode: p.rent ? "rent" : "buy",
       dur: defaultPlanDays(p),
+      variant: variants.length ? variants[0].key : null,
       // Browser-only: the local calendar day is read in componentDidMount so server and client markup match.
       today: null,
       start: null,
@@ -118,7 +139,15 @@ class Component extends React.Component {
       shot: 0,
       shared: false,
       tab: "overview",
-      reviewPrompt: false,
+      // Reviews: the page's snapshot, replaced by the API's response after writing or deleting.
+      rv: initial.reviews || null,
+      rvOpen: false,
+      rvRating: 0,
+      rvTitle: "",
+      rvBody: "",
+      rvBusy: false,
+      rvErr: "",
+      rvNotice: "",
       fulfil: "delivery",
       fbt: fbt,
       fbtAdded: false,
@@ -185,10 +214,16 @@ class Component extends React.Component {
     var P = initial.product;
     var shop = shopState(initial);
     var hv = headerVals(shop);
+    var store = storeVals(shop);
     var name = P.name;
     var canRent = !!P.rent;
     var canBuy = !P.rentOnly;
-    var isCamera = P.kind === "camera";
+    var signedIn = hv.signedIn;
+    var signInHref = "/signin?next=" + encodeURIComponent("/product/" + P.id);
+    // Warranty: the product's own term, else the store-wide one. Some terms already say "warranty".
+    var warranty = P.warranty || store.warranty;
+    var warrantySaysIt = /warranty/i.test(warranty);
+    var freeOverFmt = fmt(FREE_DELIVERY_THRESHOLD);
 
     // Header search mode
     var searchMode = s.searchMode || "rent";
@@ -288,9 +323,29 @@ class Component extends React.Component {
     var minD = parseIso(s.today);
     var minIso = minD ? iso(new Date(minD.getFullYear(), minD.getMonth(), minD.getDate() + 1)) : "";
 
-    // Buy
-    var unit = P.buy;
+    // Buy: the chosen variant's extra is part of the unit price (and is sent to the cart by key).
+    var variantDefs = P.variants || [];
+    var variant =
+      variantDefs.filter(function (v) {
+        return v.key === s.variant;
+      })[0] ||
+      variantDefs[0] ||
+      null;
+    var unit = (P.buy || 0) + (variant ? variant.extra || 0 : 0);
     var qty = s.qty || 1;
+    var variants = variantDefs.map(function (v) {
+      var on = !!variant && v.key === variant.key;
+      return {
+        label: v.label,
+        sub: v.extra ? "+" + fmt(v.extra) : fmt(P.buy || 0),
+        aria: on ? "true" : "false",
+        border: on ? "#1679BE" : "#E6E4DE",
+        bg: on ? "#EAF3FA" : "#FFFFFF",
+        pick: function () {
+          self.setState({ variant: v.key, buyErr: "", buyAdded: false });
+        },
+      };
+    });
 
     // Stock line
     var stock = P.avail
@@ -305,11 +360,12 @@ class Component extends React.Component {
     var cdH = "",
       cdM = "",
       cdDay = "today";
+    var cutoffHour = store.sameDayCutoffHour;
     if (s.now) {
       var nowD = new Date(s.now);
-      var cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), CUTOFF_HOUR, 0, 0);
+      var cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), cutoffHour, 0, 0);
       if (nowD >= cutoff) {
-        cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1, CUTOFF_HOUR, 0, 0);
+        cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1, cutoffHour, 0, 0);
         cdDay = "tomorrow";
       }
       var leftMin = Math.max(0, Math.floor((cutoff - nowD) / 60000));
@@ -318,8 +374,8 @@ class Component extends React.Component {
     }
     var fulfilSel = s.fulfil || "delivery";
     var fulfil = [
-      { id: "delivery", label: "Home delivery", sub: "Free over ETB [X]" },
-      { id: "pickup", label: "Pick up", sub: "[STORE] · free" },
+      { id: "delivery", label: "Home delivery", sub: "Free over " + freeOverFmt },
+      { id: "pickup", label: "Pick up", sub: store.name + ", " + store.address + " · free" },
     ].map(function (f) {
       var on = f.id === fulfilSel;
       return {
@@ -334,6 +390,51 @@ class Component extends React.Component {
       };
     });
 
+    // Reviews: the page snapshot until the customer writes or deletes one, then the API's response.
+    var rv = s.rv || initial.reviews || emptyReviews(P);
+    var rvCount = rv.count || 0;
+    var rvRating = rv.rating || "0.0";
+    var mine = rv.mine || null;
+    var reviewsLabel = plural(rvCount, "review");
+    var dist = (rv.distribution || []).map(function (d) {
+      return { stars: d.stars, w: d.percent + "%", pct: d.percent + "%", bg: d.percent > 0 ? STAR_ON : "transparent" };
+    });
+    var reviewItems = (rv.items || []).map(function (r) {
+      return {
+        id: r.id,
+        title: r.title || "",
+        body: r.body,
+        author: r.author,
+        date: reviewDate(r.createdAt),
+        yours: !!mine && mine.id === r.id,
+        stars: starFills(r.rating),
+        ratingLabel: "Rated " + r.rating + " out of 5",
+      };
+    });
+    var formRating = s.rvRating || 0;
+    var pickStars = [1, 2, 3, 4, 5].map(function (n) {
+      return {
+        n: n,
+        fill: n <= formRating ? STAR_ON : STAR_OFF,
+        aria: n <= formRating ? "true" : "false",
+        label: plural(n, "star"),
+        pick: function () {
+          self.setState({ rvRating: n, rvErr: "" });
+        },
+      };
+    });
+    var openReviewForm = function () {
+      self.setState({
+        tab: "reviews",
+        rvOpen: true,
+        rvErr: "",
+        rvNotice: "",
+        rvRating: mine ? mine.rating : 0,
+        rvTitle: mine ? mine.title || "" : "",
+        rvBody: mine ? mine.body || "" : "",
+      });
+    };
+
     // Tabs (rental terms only for rentable items)
     var tabDefs = TABS.filter(function (t) {
       return t.id !== "terms" || canRent;
@@ -343,7 +444,7 @@ class Component extends React.Component {
     var tabs = tabDefs.map(function (t) {
       var on = t.id === tab;
       return {
-        label: t.id === "reviews" ? "Reviews (" + P.reviews + ")" : t.label,
+        label: t.id === "reviews" ? "Reviews (" + rvCount + ")" : t.label,
         tabId: "tab-" + t.id,
         panelId: "panel-" + t.id,
         aria: on ? "true" : "false",
@@ -355,27 +456,49 @@ class Component extends React.Component {
         },
       };
     });
-    var inBox = isCamera
-      ? [name + " body", "Rechargeable battery", "Charger and cable", "Shoulder strap", "Body cap", "[OTHER ITEMS]"]
-      : [name, "[OTHER ITEMS]"];
-    var specs = isCamera
-      ? SPECS
+    // In the box and the spec sheet come from the product; a product without specs gets the generic rows.
+    var inBox = P.inTheBox && P.inTheBox.length ? P.inTheBox : [name];
+    var hasSpecs = !!(P.specs && P.specs.length);
+    var specs = hasSpecs
+      ? P.specs.slice()
       : [
           ["Category", P.cat],
           ["Brand", P.brand],
-          ["Warranty", "[TERM]"],
         ];
-    var overviewNote = isCamera
-      ? "Renting? Your " +
-        name +
-        " arrives with a charged battery and a formatted memory card slot, ready to shoot. Buying? It ships sealed, with the manufacturer's warranty."
-      : canRent && canBuy
-        ? "Renting? Your " + name + " arrives checked, cleaned and ready to use. Buying? It ships sealed, with the manufacturer's warranty."
-        : canRent
-          ? "Your " + name + " arrives checked, cleaned and ready to use, and we collect it on the return date."
-          : "Your " + name + " ships sealed, with the manufacturer's warranty.";
+    if (
+      !specs.some(function (r) {
+        return /^warranty$/i.test(r[0]);
+      })
+    )
+      specs = specs.concat([["Warranty", warranty]]);
+    var overviewNote =
+      P.kind === "camera"
+        ? "Renting? Your " +
+          name +
+          " arrives with a charged battery and a formatted memory card slot, ready to shoot. Buying? It ships sealed, with the manufacturer's warranty."
+        : canRent && canBuy
+          ? "Renting? Your " +
+            name +
+            " arrives checked, cleaned and ready to use. Buying? It ships sealed, with the manufacturer's warranty."
+          : canRent
+            ? "Your " + name + " arrives checked, cleaned and ready to use, and we collect it on the return date."
+            : "Your " + name + " ships sealed, with the manufacturer's warranty.";
+    // Rental terms: deposit and refund days, the store's damage policy (plus the damage-cover add-on's excess when
+    // the product offers one) and the delivery window.
+    var coverAddOn = addOnDefs.filter(function (a) {
+      return /cover|damage/i.test(a.key + " " + a.label);
+    })[0];
+    var excess = coverAddOn ? /ETB [\d,]+/.exec(coverAddOn.note || "") : null;
+    var damageBody =
+      (store.damagePolicy || "").replace(/[.\s]+$/, "") +
+      "." +
+      (coverAddOn ? " Add damage cover to lower your excess" + (excess ? " to " + excess[0] : "") + "." : "");
     var terms = TERMS.map(function (t, i) {
-      var body = t.title === "Deposit" ? t.body.replace("ETB [X]", fmt(P.deposit || 0)) : t.body;
+      var body = t.body;
+      if (t.title === "Deposit")
+        body = body.replace("ETB [X]", fmt(P.deposit || 0)).replace("[N] days", plural(store.depositRefundDays, "day"));
+      else if (t.title === "Damage") body = damageBody;
+      else if (t.title === "Delivery & collection") body = body.replace("[TIME WINDOW]", DELIVERY_WINDOW);
       return { n: "0" + (i + 1), title: t.title, body: body };
     });
 
@@ -497,12 +620,27 @@ class Component extends React.Component {
       cat: P.cat,
       showCat: crumbs,
       description: P.description,
-      rating: P.rating,
-      ratingLabel: "Rated " + P.rating + " out of 5",
-      reviewsLabel: P.reviews + (P.reviews === 1 ? " review" : " reviews"),
+      sku: P.sku || "—",
+      rating: rvRating,
+      ratingLabel: "Rated " + rvRating + " out of 5",
+      starFill: starFills(rvRating),
+      reviewsLabel: reviewsLabel,
       stock: stock,
       badge: P.rentOnly ? "For rent" : canRent ? "Buy or rent" : "Buy",
       shortName: name,
+
+      // Store details and policies
+      city: store.city,
+      freeOverLine: "Free delivery on orders over " + freeOverFmt,
+      returnsLine:
+        " buying? Free returns within " + plural(store.returnDays, "day") + ". Renting? We collect it from your door on the return date.",
+      warrantyLine: warrantySaysIt ? warranty : warranty + " warranty",
+      warrantyNote: "Genuine, sealed stock with " + warranty + (warrantySaysIt ? "." : " manufacturer warranty."),
+      sellHref: "/p/sell-with-us",
+      trackHref: "/track",
+      helpHref: "/p/help",
+      dealsHref: "/shop?deals=1",
+      rentalTermsHref: "/p/rental-terms",
 
       shot: shots[shotIdx],
       shotNo: "0" + (shotIdx + 1),
@@ -536,8 +674,10 @@ class Component extends React.Component {
       canBuy: canBuy,
       segCols: canRent && canBuy ? "repeat(2, minmax(0, 1fr))" : "repeat(1, minmax(0, 1fr))",
       segLabel: "Buy or rent " + name,
-      buyPriceFmt: fmt(P.buy),
+      buyPriceFmt: fmt(unit),
       rentFromFmt: "from " + fmt(rate) + " / day",
+      hasVariants: variants.length > 0,
+      variants: variants,
       isRent: isRent,
       isBuy: !isRent,
       pickBuy: function () {
@@ -629,10 +769,41 @@ class Component extends React.Component {
         return { k: r[0], v: r[1] };
       }),
       terms: terms,
-      dist: DIST,
-      reviewPrompt: !!s.reviewPrompt,
-      writeReview: function () {
-        self.setState({ reviewPrompt: true });
+      specsNote: !hasSpecs,
+
+      // Reviews tab
+      dist: dist,
+      reviews: reviewItems,
+      hasReviews: reviewItems.length > 0,
+      signedIn: signedIn,
+      signInHref: signInHref,
+      hasMine: !!mine,
+      writeLabel: mine ? "Update your review" : "Write a review",
+      rvOpen: !!s.rvOpen,
+      openReviewForm: openReviewForm,
+      closeReviewForm: function () {
+        self.setState({ rvOpen: false, rvErr: "" });
+      },
+      pickStars: pickStars,
+      rvRatingLabel: formRating ? "Your rating: " + plural(formRating, "star") : "Choose a rating",
+      rvTitle: s.rvTitle || "",
+      rvBody: s.rvBody || "",
+      onRvTitle: function (e) {
+        self.setState({ rvTitle: e.target.value, rvErr: "" });
+      },
+      onRvBody: function (e) {
+        self.setState({ rvBody: e.target.value, rvErr: "" });
+      },
+      rvBusy: !!s.rvBusy,
+      rvErr: s.rvErr || "",
+      rvNotice: s.rvNotice || "",
+      rvSubmitLabel: s.rvBusy ? "Saving…" : mine ? "Update your review" : "Post review",
+      submitReview: function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        self.submitReview();
+      },
+      deleteReview: function () {
+        self.deleteReview();
       },
 
       hasFbt: together.length > 1,
@@ -672,8 +843,10 @@ class Component extends React.Component {
     var P = (this.props.initial || {}).product;
     if (this.state.buyBusy) return;
     this.setState({ buyBusy: true, buyErr: "", buyAdded: false });
+    var input = { productId: P.id, mode: "buy", qty: qty };
+    if (this.state.variant) input.variant = this.state.variant;
     cart
-      .add({ productId: P.id, mode: "buy", qty: qty })
+      .add(input)
       .then(function () {
         if (thenCheckout) return navigate("/checkout");
         self.setState({ buyBusy: false, buyAdded: true });
@@ -709,6 +882,52 @@ class Component extends React.Component {
       })
       .catch(function (err) {
         self.setState(Object.assign(patch("cardBusy", false), patch("cardErr", errMsg(err))));
+      });
+  }
+  // Posts (or updates) the signed-in customer's review; the API answers with the refreshed reviews payload.
+  submitReview() {
+    var self = this;
+    var P = (this.props.initial || {}).product;
+    var s = this.state;
+    if (s.rvBusy) return;
+    if (!s.rvRating) return this.setState({ rvErr: "Choose a star rating" });
+    if (!(s.rvBody || "").trim()) return this.setState({ rvErr: "Write your review" });
+    var hadMine = !!(s.rv || (this.props.initial || {}).reviews || {}).mine;
+    this.setState({ rvBusy: true, rvErr: "", rvNotice: "" });
+    reviewsApi
+      .write(P.id, { rating: s.rvRating, title: (s.rvTitle || "").trim(), body: (s.rvBody || "").trim() })
+      .then(function (res) {
+        self.setState({
+          rv: res,
+          rvBusy: false,
+          rvOpen: false,
+          rvNotice: hadMine ? "Your review was updated." : "Thanks — your review is live.",
+        });
+      })
+      .catch(function (err) {
+        self.setState({ rvBusy: false, rvErr: errMsg(err) });
+      });
+  }
+  deleteReview() {
+    var self = this;
+    var P = (this.props.initial || {}).product;
+    if (this.state.rvBusy) return;
+    this.setState({ rvBusy: true, rvErr: "", rvNotice: "" });
+    reviewsApi
+      .remove(P.id)
+      .then(function (res) {
+        self.setState({
+          rv: res,
+          rvBusy: false,
+          rvOpen: false,
+          rvRating: 0,
+          rvTitle: "",
+          rvBody: "",
+          rvNotice: "Your review was deleted.",
+        });
+      })
+      .catch(function (err) {
+        self.setState({ rvBusy: false, rvErr: errMsg(err) });
       });
   }
 }
@@ -782,7 +1001,7 @@ export default class ProductScreen extends Component {
                   <circle cx="12" cy="9.5" r="2.5" />
                 </svg>
                 Deliver to
-                <strong>[CITY]</strong>
+                <strong>{vals.city}</strong>
                 <svg
                   width="12"
                   height="12"
@@ -812,19 +1031,19 @@ export default class ProductScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over ETB [X]
+                {vals.freeOverLine}
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href={vals.sellHref} style={{ color: "#E6F0F9" }}>
                 Sell or list with us
-              </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href={vals.trackHref} style={{ color: "#E6F0F9" }}>
                 Track order
-              </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href={vals.helpHref} style={{ color: "#E6F0F9" }}>
                 Help
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 English
               </a>
@@ -1201,7 +1420,7 @@ export default class ProductScreen extends Component {
               </svg>
               Rent anything
             </Link>
-            <Link href="/shop" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
+            <Link href={vals.dealsHref} style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
               <svg
                 width="15"
                 height="15"
@@ -1657,7 +1876,7 @@ export default class ProductScreen extends Component {
                     </svg>
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                    <span style={{ fontSize: "16px", fontWeight: "700" }}>Deliver to [CITY]</span>
+                    <span style={{ fontSize: "16px", fontWeight: "700" }}>Deliver to {vals.city}</span>
                     <span aria-live="off" style={{ fontSize: "14px", color: "#3A3F4A" }} suppressHydrationWarning>
                       {"Order in the next "}
                       <strong style={{ color: "#2F7A3C", fontVariantNumeric: "tabular-nums" }} suppressHydrationWarning>
@@ -1741,7 +1960,7 @@ export default class ProductScreen extends Component {
                   </svg>
                   <span>
                     <strong style={{ color: "#111318" }}>Returns:</strong>
-                    {" buying? Free returns within [N] days. Renting? We collect it from your door on the return date."}
+                    {vals.returnsLine}
                   </span>
                 </div>
               </div>
@@ -1788,7 +2007,7 @@ export default class ProductScreen extends Component {
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span style={{ fontSize: "14px", fontWeight: "700" }}>Genuine + warranty</span>
-                    <span style={{ fontSize: "12px", color: "#5E6470" }}>[TERM] warranty</span>
+                    <span style={{ fontSize: "12px", color: "#5E6470" }}>{vals.warrantyLine}</span>
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 18px", borderLeft: "1px solid #EFEDE8" }}>
@@ -1881,7 +2100,7 @@ export default class ProductScreen extends Component {
                   <span style={{ width: "12px", height: "12px", borderRadius: "999px", border: "3px solid #111318" }} />
                   {vals.brand}
                 </Link>
-                <span style={{ fontSize: "13px", color: "#5E6470" }}>SKU [SKU]</span>
+                <span style={{ fontSize: "13px", color: "#5E6470" }}>SKU {vals.sku}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <h1
@@ -1898,22 +2117,24 @@ export default class ProductScreen extends Component {
                 </h1>
                 <div style={{ display: "flex", alignItems: "center", gap: "14px", fontSize: "14px", color: "#3A3F4A" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: "2px" }} aria-label={vals.ratingLabel}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={vals.starFill[0]} aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={vals.starFill[1]} aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={vals.starFill[2]} aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={vals.starFill[3]} aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={vals.starFill[4]} aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <span style={{ marginLeft: "6px", fontWeight: "700", color: "#111318" }}>{vals.rating}</span>
+                    <span style={{ marginLeft: "6px", fontWeight: "700", color: "#111318" }} suppressHydrationWarning>
+                      {vals.rating}
+                    </span>
                   </span>
                   <a
                     href="#details"
@@ -2283,6 +2504,79 @@ export default class ProductScreen extends Component {
                         {" over [TERM] with instalments · Free delivery"}
                       </span>
                     </div>
+                    {vals.hasVariants ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <span
+                          id="var-label"
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: "700",
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "#0D4F8B",
+                          }}
+                        >
+                          Choose a set
+                        </span>
+                        <div
+                          role="group"
+                          aria-labelledby="var-label"
+                          style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}
+                          data-cols="2"
+                        >
+                          {(vals.variants || []).map((v, i0) => (
+                            <Fragment key={i0}>
+                              <button
+                                type="button"
+                                className="opt"
+                                onClick={v.pick}
+                                aria-pressed={v.aria}
+                                style={{
+                                  height: "76px",
+                                  padding: "0 16px",
+                                  border: `2px solid ${v.border}`,
+                                  borderRadius: "16px",
+                                  background: v.bg,
+                                  font: "inherit",
+                                  color: "#111318",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "14px",
+                                  textAlign: "left",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: "48px",
+                                    height: "48px",
+                                    flexShrink: "0",
+                                    borderRadius: "12px",
+                                    background: "#E0F1FF",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <div style={{ zoom: "0.26", width: "200px", height: "200px" }}>
+                                    <Render kind={vals.kind} />
+                                  </div>
+                                </span>
+                                <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                  <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                    {v.label}
+                                  </span>
+                                  <span style={{ fontSize: "13px", color: "#3A3F4A" }} suppressHydrationWarning>
+                                    {v.sub}
+                                  </span>
+                                </span>
+                              </button>
+                            </Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                         <span id="qty-label" style={{ fontSize: "14px", fontWeight: "600" }}>
@@ -2444,9 +2738,7 @@ export default class ProductScreen extends Component {
                         {vals.buyErr}
                       </span>
                     ) : null}
-                    <span style={{ fontSize: "13px", color: "#5E6470", textAlign: "center", marginTop: "-10px" }}>
-                      Genuine, sealed stock with [TERM] manufacturer warranty.
-                    </span>
+                    <span style={{ fontSize: "13px", color: "#5E6470", textAlign: "center", marginTop: "-10px" }}>{vals.warrantyNote}</span>
                   </div>
                 </>
               ) : null}
@@ -2718,9 +3010,11 @@ export default class ProductScreen extends Component {
                         </Fragment>
                       ))}
                     </dl>
-                    <span style={{ fontSize: "13px", color: "#5E6470" }}>
-                      Specifications to be confirmed with the supplier before launch.
-                    </span>
+                    {vals.specsNote ? (
+                      <span style={{ fontSize: "13px", color: "#5E6470" }}>
+                        Specifications to be confirmed with the supplier before launch.
+                      </span>
+                    ) : null}
                   </div>{" "}
                 </>
               ) : null}{" "}
@@ -2745,8 +3039,8 @@ export default class ProductScreen extends Component {
                       >
                         Rental terms
                       </h3>
-                      <a
-                        href="#"
+                      <Link
+                        href={vals.rentalTermsHref}
                         style={{
                           height: "44px",
                           display: "flex",
@@ -2757,7 +3051,7 @@ export default class ProductScreen extends Component {
                         }}
                       >
                         Read the full rental terms
-                      </a>
+                      </Link>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" }} data-cols="2">
                       {(vals.terms || []).map((tm, i0) => (
@@ -2837,7 +3131,7 @@ export default class ProductScreen extends Component {
                         </span>
                       </div>
                       <ul
-                        aria-label="Rating distribution (placeholder)"
+                        aria-label="Rating distribution"
                         style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", flexDirection: "column", gap: "10px" }}
                       >
                         {(vals.dist || []).map((ds, i0) => (
@@ -2861,125 +3155,446 @@ export default class ProductScreen extends Component {
                                     height: "10px",
                                     width: ds.w,
                                     borderRadius: "999px",
-                                    background: "repeating-linear-gradient(45deg, #D6D2C9 0 6px, #E8E5DE 6px 12px)",
+                                    background: ds.bg,
                                   }}
+                                  suppressHydrationWarning
                                 />
                               </span>
-                              <span style={{ width: "36px", textAlign: "right", color: "#5E6470" }}>[%]</span>
+                              <span style={{ width: "36px", textAlign: "right", color: "#5E6470" }} suppressHydrationWarning>
+                                {ds.pct}
+                              </span>
                             </li>
                           </Fragment>
                         ))}
                       </ul>
-                      <span style={{ fontSize: "12px", color: "#5E6470" }}>
-                        Placeholder bars — the real distribution appears once reviews are in.
-                      </span>
                     </div>
-                    <div
-                      style={{
-                        gridColumn: "span 8",
-                        border: "1.5px dashed #D9D6CE",
-                        borderRadius: "24px",
-                        padding: "40px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "14px",
-                        textAlign: "center",
-                      }}
-                      data-span="8"
-                    >
-                      <span
+                    {vals.hasReviews || vals.rvOpen ? (
+                      <div style={{ gridColumn: "span 8", display: "flex", flexDirection: "column", gap: "18px" }} data-span="8">
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                          <span style={{ fontSize: "15px", color: "#5E6470" }} suppressHydrationWarning>
+                            {vals.reviewsLabel}
+                          </span>
+                          {vals.signedIn ? (
+                            <button
+                              type="button"
+                              className="btn-t"
+                              onClick={vals.openReviewForm}
+                              style={{
+                                height: "48px",
+                                padding: "0 22px",
+                                border: "none",
+                                borderRadius: "14px",
+                                background: "#0D4F8B",
+                                color: "#FFFFFF",
+                                font: "inherit",
+                                fontSize: "15px",
+                                fontWeight: "700",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                              suppressHydrationWarning
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                              </svg>
+                              {vals.writeLabel}
+                            </button>
+                          ) : (
+                            <Link
+                              href={vals.signInHref}
+                              className="btn-t"
+                              style={{
+                                height: "48px",
+                                padding: "0 22px",
+                                border: "none",
+                                borderRadius: "14px",
+                                background: "#0D4F8B",
+                                color: "#FFFFFF",
+                                font: "inherit",
+                                fontSize: "15px",
+                                fontWeight: "700",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                              </svg>
+                              Write a review
+                            </Link>
+                          )}
+                        </div>
+                        {vals.rvOpen ? (
+                          <form
+                            onSubmit={vals.submitReview}
+                            style={{
+                              background: "#F6F5F1",
+                              borderRadius: "22px",
+                              padding: "24px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "14px",
+                            }}
+                          >
+                            <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
+                              {vals.writeLabel}
+                            </span>
+                            <div role="group" aria-label="Your rating" style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+                              {(vals.pickStars || []).map((st, i0) => (
+                                <Fragment key={i0}>
+                                  <button
+                                    type="button"
+                                    onClick={st.pick}
+                                    aria-pressed={st.aria}
+                                    aria-label={st.label}
+                                    style={{
+                                      width: "36px",
+                                      height: "36px",
+                                      padding: "0",
+                                      border: "none",
+                                      borderRadius: "10px",
+                                      background: "transparent",
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill={st.fill} aria-hidden="true">
+                                      <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
+                                    </svg>
+                                  </button>
+                                </Fragment>
+                              ))}
+                              <span style={{ marginLeft: "6px", fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                                {vals.rvRatingLabel}
+                              </span>
+                            </div>
+                            <label htmlFor="rv-title" className="sr-only">
+                              Review title
+                            </label>
+                            <input
+                              id="rv-title"
+                              type="text"
+                              value={vals.rvTitle}
+                              onChange={vals.onRvTitle}
+                              maxLength={80}
+                              placeholder="Title (optional)"
+                              style={{
+                                height: "52px",
+                                boxSizing: "border-box",
+                                padding: "0 14px",
+                                border: "1.5px solid #E6E4DE",
+                                borderRadius: "14px",
+                                background: "#FFFFFF",
+                                font: "inherit",
+                                fontSize: "15px",
+                                color: "#111318",
+                              }}
+                            />
+                            <label htmlFor="rv-body" className="sr-only">
+                              Your review
+                            </label>
+                            <textarea
+                              id="rv-body"
+                              value={vals.rvBody}
+                              onChange={vals.onRvBody}
+                              rows={4}
+                              maxLength={2000}
+                              placeholder={`How did the ${vals.name} work out for you?`}
+                              style={{
+                                boxSizing: "border-box",
+                                padding: "14px",
+                                border: "1.5px solid #E6E4DE",
+                                borderRadius: "14px",
+                                background: "#FFFFFF",
+                                font: "inherit",
+                                fontSize: "15px",
+                                lineHeight: "1.5",
+                                color: "#111318",
+                                resize: "vertical",
+                              }}
+                            />
+                            {vals.rvErr ? (
+                              <span role="alert" style={{ fontSize: "13px", color: "#C42A1C", fontWeight: "600" }}>
+                                {vals.rvErr}
+                              </span>
+                            ) : null}
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <button
+                                type="submit"
+                                className="btn-t"
+                                disabled={vals.rvBusy}
+                                style={{
+                                  height: "48px",
+                                  padding: "0 22px",
+                                  border: "none",
+                                  borderRadius: "14px",
+                                  background: "#0D4F8B",
+                                  color: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "15px",
+                                  fontWeight: "700",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                }}
+                              >
+                                {vals.rvSubmitLabel}
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost"
+                                onClick={vals.closeReviewForm}
+                                style={{
+                                  height: "48px",
+                                  padding: "0 18px",
+                                  border: "1px solid #E6E4DE",
+                                  borderRadius: "14px",
+                                  background: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "15px",
+                                  fontWeight: "600",
+                                  color: "#111318",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              {vals.hasMine ? (
+                                <button
+                                  type="button"
+                                  onClick={vals.deleteReview}
+                                  disabled={vals.rvBusy}
+                                  style={{
+                                    marginLeft: "auto",
+                                    height: "48px",
+                                    padding: "0 6px",
+                                    border: "none",
+                                    background: "transparent",
+                                    font: "inherit",
+                                    fontSize: "14px",
+                                    fontWeight: "600",
+                                    color: "#C42A1C",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Delete your review
+                                </button>
+                              ) : null}
+                            </div>
+                          </form>
+                        ) : null}
+                        {vals.rvNotice ? (
+                          <span role="status" style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600" }}>
+                            {vals.rvNotice}
+                          </span>
+                        ) : null}
+                        <ul style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
+                          {(vals.reviews || []).map((r, i0) => (
+                            <Fragment key={i0}>
+                              <li
+                                style={{
+                                  background: "#F6F5F1",
+                                  borderRadius: "22px",
+                                  padding: "24px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "8px",
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: "2px" }} aria-label={r.ratingLabel}>
+                                    {(r.stars || []).map((fill, i1) => (
+                                      <Fragment key={i1}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill={fill} aria-hidden="true">
+                                          <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
+                                        </svg>
+                                      </Fragment>
+                                    ))}
+                                  </span>
+                                  <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                                    {r.author}
+                                    {r.yours ? " (you)" : ""}
+                                    {" · "}
+                                    {r.date}
+                                  </span>
+                                </div>
+                                {r.title ? (
+                                  <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
+                                    {r.title}
+                                  </span>
+                                ) : null}
+                                <span style={{ fontSize: "15px", lineHeight: "1.55", color: "#3A3F4A" }} suppressHydrationWarning>
+                                  {r.body}
+                                </span>
+                              </li>
+                            </Fragment>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div
                         style={{
-                          width: "64px",
-                          height: "64px",
-                          borderRadius: "20px",
-                          background: "#EAF3FA",
-                          color: "#0D4F8B",
+                          gridColumn: "span 8",
+                          border: "1.5px dashed #D9D6CE",
+                          borderRadius: "24px",
+                          padding: "40px",
                           display: "flex",
+                          flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
+                          gap: "14px",
+                          textAlign: "center",
                         }}
+                        data-span="8"
                       >
-                        <svg
-                          width="28"
-                          height="28"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
+                        <span
+                          style={{
+                            width: "64px",
+                            height: "64px",
+                            borderRadius: "20px",
+                            background: "#EAF3FA",
+                            color: "#0D4F8B",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
                         >
-                          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-                          <path d="M8.5 11h.01M12 11h.01M15.5 11h.01" />
-                        </svg>
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "'Bricolage Grotesque', sans-serif",
-                          fontSize: "24px",
-                          fontWeight: "700",
-                          letterSpacing: "-0.03em",
-                        }}
-                      >
-                        Reviews will appear here
-                      </span>
-                      <span style={{ fontSize: "15px", lineHeight: "1.55", color: "#5E6470", maxWidth: "420px" }}>
-                        {"Customers who bought or rented the "}
-                        {vals.name}
-                        {" can share how it went after their order."}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn-t"
-                        onClick={vals.writeReview}
-                        style={{
-                          height: "48px",
-                          padding: "0 22px",
-                          border: "none",
-                          borderRadius: "14px",
-                          background: "#0D4F8B",
-                          color: "#FFFFFF",
-                          font: "inherit",
-                          fontSize: "15px",
-                          fontWeight: "700",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
+                          <svg
+                            width="28"
+                            height="28"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+                            <path d="M8.5 11h.01M12 11h.01M15.5 11h.01" />
+                          </svg>
+                        </span>
+                        <span
+                          style={{
+                            fontFamily: "'Bricolage Grotesque', sans-serif",
+                            fontSize: "24px",
+                            fontWeight: "700",
+                            letterSpacing: "-0.03em",
+                          }}
                         >
-                          <path d="M4 20h4L19 9l-4-4L4 16v4z" />
-                        </svg>
-                        Write a review
-                      </button>
-                      {vals.reviewPrompt ? (
-                        <>
-                          <span role="status" style={{ fontSize: "14px", color: "#3A3F4A" }}>
-                            <Link
-                              href="/signin"
-                              style={{ color: "#0D4F8B", fontWeight: "700", textDecoration: "underline", textUnderlineOffset: "3px" }}
+                          Reviews will appear here
+                        </span>
+                        <span style={{ fontSize: "15px", lineHeight: "1.55", color: "#5E6470", maxWidth: "420px" }}>
+                          {"Customers who bought or rented the "}
+                          {vals.name}
+                          {" can share how it went after their order."}
+                        </span>
+                        {vals.signedIn ? (
+                          <button
+                            type="button"
+                            className="btn-t"
+                            onClick={vals.openReviewForm}
+                            style={{
+                              height: "48px",
+                              padding: "0 22px",
+                              border: "none",
+                              borderRadius: "14px",
+                              background: "#0D4F8B",
+                              color: "#FFFFFF",
+                              font: "inherit",
+                              fontSize: "15px",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
                             >
-                              Sign in
-                            </Link>
-                            {" to review a product you bought or rented."}
+                              <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                            </svg>
+                            Write a review
+                          </button>
+                        ) : (
+                          <Link
+                            href={vals.signInHref}
+                            className="btn-t"
+                            style={{
+                              height: "48px",
+                              padding: "0 22px",
+                              border: "none",
+                              borderRadius: "14px",
+                              background: "#0D4F8B",
+                              color: "#FFFFFF",
+                              font: "inherit",
+                              fontSize: "15px",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                            </svg>
+                            Write a review
+                          </Link>
+                        )}
+                        {vals.rvNotice ? (
+                          <span role="status" style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600" }}>
+                            {vals.rvNotice}
                           </span>
-                        </>
-                      ) : null}
-                    </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>{" "}
                 </>
               ) : null}{" "}

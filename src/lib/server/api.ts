@@ -37,6 +37,7 @@ export type ProductDTO = {
   brand: string;
   kind: string;
   bg: string;
+  sku: string | null;
   buy: number;
   was?: number;
   rent?: number;
@@ -49,13 +50,18 @@ export type ProductDTO = {
   sold: number;
   free: boolean;
   shipsInDays?: number;
+  warranty: string | null;
+  specs: [string, string][];
+  inTheBox: string[];
   plans: { days: number; price: number }[];
   addOns: { key: string; label: string; note?: string; perDay: number }[];
+  variants: { key: string; label: string; extra: number }[];
 };
 
 export type CartLineDTO = {
   id: number;
   product: ProductDTO;
+  variant: { key: string; label: string; extra: number } | null;
   mode: "buy" | "rent";
   qty: number;
   rentStart: string | null;
@@ -77,19 +83,48 @@ export type CartDTO = {
   count: number;
 };
 
+export type StoreDTO = {
+  name: string;
+  city: string;
+  address: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  hours: string;
+  sameDayCutoffHour: number;
+  pickupReadyHours: number;
+  returnDays: number;
+  depositRefundDays: number;
+  warranty: string;
+  damagePolicy: string;
+  payOnDeliveryTerms: string;
+};
+
+export type AuthConfig = { google: boolean; otp: boolean; otpDevMode: boolean; passwordReset: boolean };
+
 export type Shell = {
-  user: { id: number; name: string; email: string | null; phone: string | null; createdAt: string } | null;
+  user: { id: number; name: string; email: string | null; phone: string | null; createdAt: string; hasPassword: boolean; google: boolean } | null;
   cart: CartDTO;
   wishlist: string[];
+  store: StoreDTO;
+  auth: AuthConfig;
 };
 
 export type OrderDTO = { id: string; number: string; [key: string]: unknown };
+export type PageDTO = { slug: string; title: string; summary: string; body: string; updatedAt: string };
 
 export const getShell = () => apiGet<Shell>("/shell") as Promise<Shell>;
+export const getStore = () => apiGet<StoreDTO>("/settings") as Promise<StoreDTO>;
 export const listProducts = async () => (await apiGet<{ items: ProductDTO[] }>("/products"))?.items ?? [];
 export const getProduct = (slug: string) => apiGet<ProductDTO>(`/products/${encodeURIComponent(slug)}`);
+export const getReviews = (slug: string) => apiGet<Record<string, unknown>>(`/products/${encodeURIComponent(slug)}/reviews`);
 export const listCategories = async () => (await apiGet<{ items: unknown[] }>("/categories"))?.items ?? [];
 export const listBrands = async () => (await apiGet<{ items: unknown[] }>("/brands"))?.items ?? [];
+export const listBundles = async () => (await apiGet<{ items: unknown[] }>("/bundles"))?.items ?? [];
 export const listOrders = async () => (await apiGet<{ orders: OrderDTO[] }>("/orders"))?.orders ?? [];
 export const getOrder = (id: string) => apiGet<OrderDTO>(`/orders/${encodeURIComponent(id)}`);
 export const listAddresses = async () => (await apiGet<{ addresses: unknown[] }>("/addresses"))?.addresses ?? [];
+export const listPaymentMethods = async () => (await apiGet<{ methods: unknown[] }>("/payment-methods"))?.methods ?? [];
+export const getNotifications = () => apiGet<Record<string, boolean>>("/auth/notifications");
+export const listPages = async () => (await apiGet<{ items: { slug: string; title: string; summary: string }[] }>("/pages"))?.items ?? [];
+export const getPage = (slug: string) => apiGet<PageDTO>(`/pages/${encodeURIComponent(slug)}`);

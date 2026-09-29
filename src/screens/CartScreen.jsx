@@ -4,7 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
+import { shopState, connectShop, headerVals, submitSearch, navigate, storeVals, cart, wishlist } from "@/lib/client/store";
 import { computeTotals, FREE_DELIVERY_THRESHOLD, DELIVERY_FEE } from "@/lib/pricing";
 
 /* eslint-disable */
@@ -38,6 +38,16 @@ function rentalDates(l) {
 function deptHref(name) {
   return "/shop?dept=" + encodeURIComponent(name);
 }
+// 16 -> "4pm", 9 -> "9am" (the store's same-day cut-off hour)
+function hourLabel(h) {
+  var n = Number(h);
+  if (isNaN(n)) return String(h || "");
+  var x = n % 12 || 12;
+  return x + (n < 12 || n === 24 ? "am" : "pm");
+}
+function variantOf(l) {
+  return l.variant && l.variant.label ? l.variant.label : "";
+}
 
 class Component extends React.Component {
   constructor(props) {
@@ -68,6 +78,11 @@ class Component extends React.Component {
     var initial = this.props.initial || {};
     var shop = shopState(initial);
     var hv = headerVals(shop);
+    var store = storeVals(shop);
+    var storeAddr = store.address + (String(store.address).indexOf(store.city) < 0 ? ", " + store.city : "");
+    // The signed-in customer's default saved address (null for guests / no addresses)
+    var defAddr = initial.defaultAddress && initial.defaultAddress.line1 ? initial.defaultAddress : null;
+    var defAddrText = defAddr ? [defAddr.line1, defAddr.area, defAddr.city].filter(Boolean).join(", ") : "";
     var c = shop.cart || { lines: [], saved: [], promo: null, totals: null };
     var lines = c.lines || [];
     var savedL = c.saved || [];
@@ -125,6 +140,7 @@ class Component extends React.Component {
       var p = l.product;
       return {
         name: p.name,
+        variant: variantOf(l),
         kind: p.kind,
         bg: p.bg,
         href: "/product/" + p.id,
@@ -148,6 +164,7 @@ class Component extends React.Component {
       buyUnits += l.qty;
       return {
         name: p.name,
+        variant: variantOf(l),
         cat: p.cat,
         kind: p.kind,
         bg: p.bg,
@@ -193,7 +210,7 @@ class Component extends React.Component {
         name: p.name,
         kind: p.kind,
         bg: p.bg,
-        unitFmt: l.mode === "rent" ? fmt(l.lineTotal) + " · rental" : fmt(l.unitPrice),
+        unitFmt: (variantOf(l) ? variantOf(l) + " · " : "") + (l.mode === "rent" ? fmt(l.lineTotal) + " · rental" : fmt(l.unitPrice)),
         busy: !!busy[l.id],
         move: function () {
           act(l.id, function () {
@@ -235,15 +252,15 @@ class Component extends React.Component {
         id: "deliver",
         title: "Deliver to me",
         fee: deliverT.deliveryFee === 0 ? "Free" : fmt(DELIVERY_FEE),
-        line1: "To [ADDRESS], [CITY]. Pick a delivery slot at checkout.",
-        line2: "Same-day available before [TIME]",
+        line1: (defAddr ? "To " + defAddrText + "." : "Anywhere in " + store.city + ".") + " Pick a delivery slot at checkout.",
+        line2: "Same-day available before " + hourLabel(store.sameDayCutoffHour),
       },
       {
         id: "pickup",
         title: "Pick up in store",
         fee: "Free",
-        line1: "Simbatech store, [ADDRESS], [CITY].",
-        line2: "Ready in [N] hours · we will text you",
+        line1: store.name + " store, " + storeAddr + ".",
+        line2: "Ready in " + store.pickupReadyHours + " hours · we will text you",
       },
     ].map(function (d) {
       var on = (s.delivery || "deliver") === d.id;
@@ -388,8 +405,10 @@ class Component extends React.Component {
       freeIconFg: unlocked ? "#2F7A3C" : "#0D4F8B",
       deliveryOpts: deliveryOpts,
       deliveryNote: pickup
-        ? "Rentals picked up in store go back to the same store by [TIME] on the return date."
+        ? "Rentals picked up in store go back to the same store during opening hours (" + store.hours + ") on the return date."
         : "Rentals are always delivered and collected by us, whatever you choose for purchases.",
+      city: store.city,
+      freeOver: "Free delivery on orders over " + fmt(FREE_THRESHOLD),
       buyUnits: buyUnits,
       buySubFmt: fmt(buySub),
       promoOn: !!c.promo,
@@ -513,7 +532,7 @@ export default class CartScreen extends Component {
                   <circle cx="12" cy="9.5" r="2.5" />
                 </svg>
                 Deliver to
-                <strong>[CITY]</strong>
+                <strong suppressHydrationWarning>{vals.city}</strong>
                 <svg
                   width="12"
                   height="12"
@@ -543,19 +562,19 @@ export default class CartScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over ETB [X]
+                {vals.freeOver}
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/p/sell-with-us" style={{ color: "#E6F0F9" }}>
                 Sell or list with us
-              </a>
-              <Link href="/account" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href="/track" style={{ color: "#E6F0F9" }}>
                 Track order
               </Link>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/p/help" style={{ color: "#E6F0F9" }}>
                 Help
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 English
               </a>
@@ -931,7 +950,7 @@ export default class CartScreen extends Component {
               </svg>
               Rent anything
             </Link>
-            <Link href="/shop" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
+            <Link href="/shop?deals=1" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
               <svg
                 width="15"
                 height="15"
@@ -1338,6 +1357,11 @@ export default class CartScreen extends Component {
                                 >
                                   {r.name}
                                 </Link>
+                                {r.variant ? (
+                                  <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                                    {r.variant}
+                                  </span>
+                                ) : null}
                                 <div
                                   style={{
                                     display: "flex",
@@ -1538,6 +1562,11 @@ export default class CartScreen extends Component {
                                 >
                                   {p.name}
                                 </Link>
+                                {p.variant ? (
+                                  <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                                    {p.variant}
+                                  </span>
+                                ) : null}
                                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px", fontSize: "14px" }}>
                                   <span style={{ fontWeight: "600", color: p.unitColor }} suppressHydrationWarning>
                                     {p.unitFmt}

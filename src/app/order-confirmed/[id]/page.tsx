@@ -5,8 +5,10 @@ import { getOrder, getShell } from "@/lib/server/api";
 
 export const metadata: Metadata = { title: "Simbatech — Order confirmed" };
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const [shell, order] = await Promise.all([getShell(), getOrder((await params).id)]);
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ payment?: string }> }) {
+  const [{ id }, { payment }] = await Promise.all([params, searchParams]);
+  const [shell, order] = await Promise.all([getShell(), getOrder(id)]);
   if (!order) notFound();
-  return <ConfirmedScreen initial={{ ...shell, order }} />;
+  const paymentResult = payment === "paid" || payment === "failed" ? payment : null;
+  return <ConfirmedScreen initial={{ ...shell, order, paymentResult }} />;
 }

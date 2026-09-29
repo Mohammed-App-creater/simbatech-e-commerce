@@ -4,7 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, api } from "@/lib/client/store";
+import { shopState, connectShop, storeVals, payments, api } from "@/lib/client/store";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -66,12 +66,24 @@ function fmtStamp(iso) {
 function firstName(n) {
   return (n || "").trim().split(/\s+/)[0] || "there";
 }
+function telHref(phone) {
+  return "tel:" + String(phone || "").replace(/[^\d+]/g, "");
+}
 
 class Component extends React.Component {
   constructor(props) {
     super(props);
     var order = (props.initial && props.initial.order) || null;
-    this.state = { order: order, copied: false, extra: {}, rates: {}, busy: null, error: null };
+    this.state = { order: order, copied: false, extra: {}, rates: {}, busy: null, error: null, payBusy: false, payError: "" };
+  }
+  // (Re)starts the online payment: the store sends the browser to the gateway.
+  payNow() {
+    var self = this;
+    if (this.state.payBusy) return;
+    this.setState({ payBusy: true, payError: "" });
+    payments.payNow(this.state.order.id).catch(function (err) {
+      self.setState({ payBusy: false, payError: (err && err.message) || "Couldn't start the payment. Please try again." });
+    });
   }
   componentDidMount() {
     var self = this;
@@ -132,9 +144,15 @@ class Component extends React.Component {
   renderVals() {
     var self = this;
     var s = this.state || {};
-    var shop = shopState(this.props.initial);
+    var initial = this.props.initial || {};
+    var shop = shopState(initial);
+    var store = storeVals(shop);
     var signedIn = !!shop.user;
     var o = s.order;
+    var pay = o.payment || {};
+    var paid = pay.status === "paid";
+    var needsPay = !paid && !!pay.payable; // an unpaid Telebirr / card order that can be paid online
+    var payFailed = initial.paymentResult === "failed" || pay.status === "failed";
     var cancelled = o.status === "CANCELLED";
     var step = o.step || 0;
     var current = cancelled ? -1 : step + 1; // the step after the last one reached is "in progress"
@@ -150,7 +168,7 @@ class Component extends React.Component {
       var time = eventAt[t.status]
         ? fmtStamp(eventAt[t.status])
         : i === 1
-          ? "Expected [TIME]"
+          ? "Expected within " + store.pickupReadyHours + " hours"
           : i === 2
             ? slotShort || "To be scheduled"
             : o.deliveryDate
@@ -194,6 +212,7 @@ class Component extends React.Component {
         kind: l.kind,
         bg: l.bg,
         qty: l.qty,
+        variant: l.variant || "",
         meta: rent ? "Rental · " + dayWord(l.rentDays || 0) : "Purchase · Qty " + l.qty,
         price: price,
         rent: rent,
@@ -208,7 +227,7 @@ class Component extends React.Component {
       var rate = s.rates[i.name] || (i.extendedDays ? Math.round((i.extraCharge || 0) / i.extendedDays) : 0);
       var err = s.error && s.error.id === i.id ? s.error.message : "";
       return {
-        name: i.name,
+        name: i.name + (i.variant ? " · " + i.variant : ""),
         kind: i.kind,
         bg: i.bg,
         rentLine: dayWord(i.rentDays || 0) + " · " + fmt(price) + (i.deposit ? " · " + fmt(i.deposit) + " deposit" : ""),
@@ -244,9 +263,24 @@ class Component extends React.Component {
       firstName: firstName(o.contact.name),
       orderNo: o.number,
       email: o.contact.email,
-      trackHref: signedIn ? "/account" : "#h-track",
+      helpPhone: store.phone,
+      helpHref: telHref(store.phone),
+      // Heading: the confirmed copy once paid (or for pay-on-delivery); a nudge while an online payment is outstanding
+      headLead: needsPay ? "Almost there — " : "Thank you, " + firstName(o.contact.name) + "! ",
+      headAccent: needsPay ? "complete your payment." : "Your order is confirmed.",
+      needsPay: needsPay,
+      payNotice: s.payError ? s.payError : payFailed ? "Your payment didn't go through. You can try again." : "",
+      payNowLabel: s.payBusy ? "Opening payment…" : "Pay now",
+      payBusy: !!s.payBusy,
+      payNow: function () {
+        self.payNow();
+      },
+      trackHref: signedIn
+        ? "/account"
+        : "/track?number=" + encodeURIComponent(o.number) + "&phone=" + encodeURIComponent(o.contact.phone || ""),
       trackHeading: cancelled ? "This order was cancelled" : HEADINGS[Math.min(step, 3)],
-      updated: lastEvent ? "Updated " + fmtTime(lastEvent.at) : "Updated [TIME]",
+      updated: "Updated " + fmtTime(lastEvent ? lastEvent.at : o.createdAt),
+      pickupStore: store.name + ", " + store.address,
       track: track,
       lines: lines,
       slot: o.deliveryDate ? fmtDate(o.deliveryDate) + (o.deliveryWindow ? " · " + o.deliveryWindow : "") : "To be scheduled",
@@ -272,10 +306,12 @@ class Component extends React.Component {
       hasDeposit: o.totals.deposit > 0,
       depositFmt: fmt(o.totals.deposit),
       depositNote: "+ " + fmt(o.totals.deposit) + " refundable deposit",
-      payLabel: o.payment.status === "paid" ? "Paid with" : "Payment",
+      payLabel: paid ? "Paid with" : "Payment",
       payMethod:
-        (METHOD[o.payment.method] || String(o.payment.method).toUpperCase()) +
-        (o.payment.status === "paid" ? "" : " · " + o.payment.status),
+        pay.method === "cod"
+          ? "Pay the driver on delivery"
+          : (METHOD[pay.method] || String(pay.method).toUpperCase()) +
+            (paid ? "" : pay.status === "failed" ? " · payment failed" : pay.status === "refunded" ? " · refunded" : " · not paid yet"),
       totalFmt: fmt(o.totals.total),
       extended: extraDays > 0,
       extraWord: dayWord(extraDays),
@@ -484,8 +520,8 @@ export default class ConfirmedScreen extends Component {
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25", fontSize: "12px", color: "#5E6470" }}>
                 Need help?
-                <a href="#" style={{ fontSize: "14px", fontWeight: "700", color: "#0D4F8B" }}>
-                  [PHONE]
+                <a href={vals.helpHref} style={{ fontSize: "14px", fontWeight: "700", color: "#0D4F8B" }} suppressHydrationWarning>
+                  {vals.helpPhone}
                 </a>
               </span>
             </div>
@@ -594,7 +630,7 @@ export default class ConfirmedScreen extends Component {
                     color: "#111318",
                   }}
                 >
-                  {"Thank you, " + vals.firstName + "! "}
+                  {vals.headLead}
                   <span
                     style={{
                       fontFamily: "'Instrument Serif', serif",
@@ -604,9 +640,14 @@ export default class ConfirmedScreen extends Component {
                       color: "#2F7A3C",
                     }}
                   >
-                    Your order is confirmed.
+                    {vals.headAccent}
                   </span>
                 </h1>
+                {vals.payNotice ? (
+                  <p role="alert" style={{ margin: "0", fontSize: "15px", fontWeight: "600", color: "#C42A1C" }} suppressHydrationWarning>
+                    {vals.payNotice}
+                  </p>
+                ) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", fontSize: "15px", color: "#1F3B26" }}>
                   <span
                     style={{
@@ -649,6 +690,46 @@ export default class ConfirmedScreen extends Component {
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: "12px", paddingTop: "4px" }}>
+                  {vals.needsPay ? (
+                    <button
+                      type="button"
+                      onClick={vals.payNow}
+                      disabled={vals.payBusy}
+                      className="btn-y"
+                      style={{
+                        height: "52px",
+                        padding: "0 24px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        border: "none",
+                        borderRadius: "14px",
+                        background: "#2F7A3C",
+                        color: "#FFFFFF",
+                        font: "inherit",
+                        fontSize: "15px",
+                        fontWeight: "700",
+                        cursor: "pointer",
+                      }}
+                      suppressHydrationWarning
+                    >
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <rect x="4" y="10" width="16" height="11" rx="2" />
+                        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                      </svg>
+                      {vals.payNowLabel}
+                    </button>
+                  ) : null}
                   <Link
                     href={vals.trackHref}
                     className="btn-t"
@@ -936,7 +1017,11 @@ export default class ConfirmedScreen extends Component {
                             {vals.addrCity}
                           </>
                         ) : (
-                          "Pick up in store"
+                          <>
+                            Pick up in store
+                            <br />
+                            <span suppressHydrationWarning>{vals.pickupStore}</span>
+                          </>
                         )}
                       </dd>
                     </div>
@@ -1228,6 +1313,11 @@ export default class ConfirmedScreen extends Component {
                         <span style={{ fontSize: "14px", fontWeight: "700" }} suppressHydrationWarning>
                           {l.name}
                         </span>
+                        {l.variant ? (
+                          <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
+                            {l.variant}
+                          </span>
+                        ) : null}
                         <span style={{ fontSize: "12px", fontWeight: "600", color: l.metaFg }} suppressHydrationWarning>
                           {l.meta}
                         </span>

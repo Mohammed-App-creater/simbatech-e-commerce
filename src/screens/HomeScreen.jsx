@@ -4,8 +4,8 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
-import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
-import { rentalBasePrice } from "@/lib/pricing";
+import { shopState, connectShop, headerVals, submitSearch, navigate, storeVals, cart, wishlist } from "@/lib/client/store";
+import { rentalBasePrice, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -88,44 +88,8 @@ var SLIDES = [
     chipPrice: "ETB 84,900",
   },
 ];
-var BUNDLES = [
-  {
-    name: "Garden party",
-    desc: "Shade, seating and sound for up to [N] guests.",
-    k1: "tent",
-    k2: "headphones",
-    bg: "#E4F2E6",
-    price: 6500,
-    items: ["Canopy tent", "20 chairs", "Speaker", "String lights"],
-  },
-  {
-    name: "Photoshoot kit",
-    desc: "Everything for a pro shoot, ready to go.",
-    k1: "camera",
-    k2: "phone",
-    bg: "#EAF3FA",
-    price: 4200,
-    items: ["Lumen Z6", "2 lenses", "Light kit", "Tripod"],
-  },
-  {
-    name: "Weekend DIY",
-    desc: "Tackle the shelves, the fence and the gutters.",
-    k1: "drill",
-    k2: "bike",
-    bg: "#FFF4C7",
-    price: 1500,
-    items: ["Cordless drill", "Ladder", "Tool set", "Safety kit"],
-  },
-  {
-    name: "Kids' birthday",
-    desc: "Play, shade and seating for a day of fun.",
-    k1: "blocks",
-    k2: "tent",
-    bg: "#FFE4EF",
-    price: 5200,
-    items: ["Kids' tent", "Tables & chairs", "Toy set", "Party lights"],
-  },
-];
+// The hero chip and the Events & Party promo quote the "Garden party" bundle's real price.
+var HERO_BUNDLE = "Garden party";
 function g(title, links) {
   return {
     title: title,
@@ -315,8 +279,9 @@ class Component extends React.Component {
     this.unsubShop && this.unsubShop();
     (this.flashTimers || []).forEach(clearTimeout);
   }
-  // Runs a store action for one control: disables it while pending, shows "Added" for ~1.5s, keeps the error message.
-  runAction(key, fn) {
+  // Runs a store action for one control: disables it while pending, shows "Added" for ~1.5s (or until the next action
+  // when `keepDone` is set), keeps the error message.
+  runAction(key, fn, keepDone) {
     var self = this;
     if (self.state.busy[key]) return;
     var patch = function (field, value) {
@@ -333,6 +298,7 @@ class Component extends React.Component {
       .then(
         function () {
           self.setState(Object.assign(patch("busy", null), patch("done", true)));
+          if (keepDone) return;
           self.flashTimers = self.flashTimers || [];
           self.flashTimers.push(
             setTimeout(function () {
@@ -354,9 +320,15 @@ class Component extends React.Component {
     var P = initial.products || [];
     var shop = shopState(initial);
     var hv = headerVals(shop);
+    var store = storeVals(shop);
+    var freeOverFmt = fmt(FREE_DELIVERY_THRESHOLD);
     var busy = s.busy || {};
     var done = s.done || {};
     var errs = s.errs || {};
+    var BUNDLES = initial.bundles || [];
+    var heroBundle = BUNDLES.filter(function (b) {
+      return b.name === HERO_BUNDLE;
+    })[0];
     var addToCart = function (key, p, mode) {
       return function () {
         self.runAction(key, function () {
@@ -588,15 +560,19 @@ class Component extends React.Component {
     };
     var baseSlide = SLIDES[slideIdx];
     var chipP = byKind(P, baseSlide.chipKind);
+    var chipIsBundle = baseSlide.chipName === HERO_BUNDLE + " bundle";
     var slide = Object.assign({}, baseSlide, {
-      chipHref: chipP ? productHref(chipP) : baseSlide.href1,
+      sub: baseSlide.sub.replace("ETB [X]", freeOverFmt),
+      chipHref: chipIsBundle ? "#bundles" : chipP ? productHref(chipP) : baseSlide.href1,
       chipName: chipP && baseSlide.chipName === chipP.name ? chipP.name : baseSlide.chipName,
       chipPrice:
-        chipP && baseSlide.chipName === chipP.name
-          ? baseSlide.chipRent && chipP.rent
-            ? fmt(chipP.rent) + " / day"
-            : fmt(chipP.buy)
-          : baseSlide.chipPrice,
+        chipIsBundle && heroBundle
+          ? "from " + fmt(heroBundle.price) + " / day"
+          : chipP && baseSlide.chipName === chipP.name
+            ? baseSlide.chipRent && chipP.rent
+              ? fmt(chipP.rent) + " / day"
+              : fmt(chipP.buy)
+            : baseSlide.chipPrice,
     });
     var dots = SLIDES.map(function (x, i) {
       var on = i === slideIdx;
@@ -613,7 +589,13 @@ class Component extends React.Component {
     var deptIdx = s.dept || 0;
     var menuOpen = !!s.menuOpen;
     var deptDef = DEPTS[deptIdx];
-    var dept = Object.assign({}, deptDef, { href: deptHref(deptDef.shop) });
+    var dept = Object.assign({}, deptDef, {
+      href: deptHref(deptDef.shop),
+      promoTitle:
+        deptDef.promoEyebrow === "Rental bundles" && heroBundle
+          ? heroBundle.name + " from " + fmt(heroBundle.price) + " a day"
+          : deptDef.promoTitle,
+    });
     var menuDepts = DEPTS.map(function (d, i) {
       var on = i === deptIdx;
       return {
@@ -628,23 +610,31 @@ class Component extends React.Component {
       };
     });
 
+    // Rental bundles: "Book bundle" books every rentable item in the bundle for one day and keeps the customer here
+    // (the header cart updates); the button then offers the cart.
     var bundles = BUNDLES.map(function (b) {
+      var key = "bundle:" + b.id;
+      var booked = !!done[key];
+      var items = b.items || [];
       return Object.assign({}, b, {
-        count: b.items.length,
-        priceFmt: fmt(b.price),
-        items: b.items.map(function (l) {
-          return { label: l };
+        count: b.count || items.length,
+        priceFmt: fmt(b.price || 0),
+        items: items.map(function (it) {
+          return { label: it.label };
         }),
+        busy: !!busy[key],
+        booked: booked,
+        cta: busy[key] ? "Booking…" : booked ? "Booked · View cart" : "Book bundle",
+        err: errs[key] || "",
         add: function () {
-          var p =
-            [b.k1, b.k2]
-              .map(function (k) {
-                return byKind(P, k);
-              })
-              .filter(function (x) {
-                return x && x.rent;
-              })[0] || null;
-          navigate(p ? productHref(p) : "/shop?mode=rent");
+          if (booked) return navigate("/cart");
+          self.runAction(
+            key,
+            function () {
+              return cart.addBundle({ bundleId: b.id, rentDays: 1 });
+            },
+            true,
+          );
         },
       });
     });
@@ -714,6 +704,13 @@ class Component extends React.Component {
       accountHref: hv.accountHref,
       accountHello: hv.accountHello,
       wishHref: hv.signedIn ? "/account?tab=wishlist" : "/signin?next=" + encodeURIComponent("/account?tab=wishlist"),
+      // Store details and utility links
+      city: store.city,
+      freeOverLine: "Free delivery on orders over " + freeOverFmt,
+      sellHref: "/p/sell-with-us",
+      trackHref: "/track",
+      helpHref: "/p/help",
+      dealsHref: "/shop?deals=1",
     };
   }
 }
@@ -787,7 +784,7 @@ export default class HomeScreen extends Component {
                   <circle cx="12" cy="9.5" r="2.5" />
                 </svg>
                 Deliver to
-                <strong>[CITY]</strong>
+                <strong>{vals.city}</strong>
                 <svg
                   width="12"
                   height="12"
@@ -817,19 +814,19 @@ export default class HomeScreen extends Component {
                   <circle cx="7" cy="17.5" r="1.8" />
                   <circle cx="17" cy="17.5" r="1.8" />
                 </svg>
-                Free delivery on orders over ETB [X]
+                {vals.freeOverLine}
               </span>
             </div>
             <nav aria-label="Utility" className="nav" style={{ display: "flex", gap: "24px" }}>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href={vals.sellHref} style={{ color: "#E6F0F9" }}>
                 Sell or list with us
-              </a>
-              <Link href="/account" style={{ color: "#E6F0F9" }}>
+              </Link>
+              <Link href={vals.trackHref} style={{ color: "#E6F0F9" }}>
                 Track order
               </Link>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href={vals.helpHref} style={{ color: "#E6F0F9" }}>
                 Help
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 English
               </a>
@@ -1208,7 +1205,7 @@ export default class HomeScreen extends Component {
               </svg>
               Rent anything
             </Link>
-            <Link href="/shop" style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
+            <Link href={vals.dealsHref} style={{ display: "flex", alignItems: "center", gap: "6px", color: "#C42A1C", fontWeight: "600" }}>
               <svg
                 width="15"
                 height="15"
@@ -1819,7 +1816,7 @@ export default class HomeScreen extends Component {
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span style={{ fontSize: "15px", fontWeight: "700" }}>Same-day delivery</span>
-                  <span style={{ fontSize: "13px", color: "#5E6470" }}>Across [CITY]</span>
+                  <span style={{ fontSize: "13px", color: "#5E6470" }}>Across {vals.city}</span>
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "0 28px", borderLeft: "1px solid #EFEDE8" }}>
@@ -2114,7 +2111,7 @@ export default class HomeScreen extends Component {
                   </div>
                 </div>
                 <Link
-                  href="/shop"
+                  href={vals.dealsHref}
                   style={{
                     height: "44px",
                     display: "flex",
@@ -2781,6 +2778,7 @@ export default class HomeScreen extends Component {
             </div>{" "}
           </section>
           <section
+            id="bundles"
             style={{ padding: "96px var(--gutter) 0", display: "flex", flexDirection: "column", gap: "32px" }}
             data-sec="rental-bundles"
           >
@@ -2965,6 +2963,8 @@ export default class HomeScreen extends Component {
                           type="button"
                           className="btn-y"
                           onClick={b.add}
+                          disabled={b.busy}
+                          aria-label={`${b.cta}: ${b.name}`}
                           style={{
                             height: "44px",
                             padding: "0 16px",
@@ -2977,10 +2977,16 @@ export default class HomeScreen extends Component {
                             fontWeight: "700",
                             cursor: "pointer",
                           }}
+                          suppressHydrationWarning
                         >
-                          Book bundle
+                          {b.cta}
                         </button>
                       </div>
+                      {b.err ? (
+                        <span role="alert" style={{ fontSize: "12px", fontWeight: "500", color: "#C42A1C" }}>
+                          {b.err}
+                        </span>
+                      ) : null}
                     </div>
                   </article>
                 </Fragment>

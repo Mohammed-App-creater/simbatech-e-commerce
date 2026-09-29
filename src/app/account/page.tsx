@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import AccountScreen from "@/screens/AccountScreen";
-import { getShell, listAddresses, listOrders, listProducts } from "@/lib/server/api";
+import { getNotifications, getShell, listAddresses, listOrders, listPaymentMethods, listProducts } from "@/lib/server/api";
 
 export const metadata: Metadata = { title: "Simbatech — My account" };
 
@@ -11,7 +11,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const { tab } = await searchParams;
   const shell = await getShell();
   if (!shell.user) redirect("/signin?next=/account");
-  const [orders, addresses, products] = await Promise.all([listOrders(), listAddresses(), listProducts()]);
+  const [orders, addresses, products, paymentMethods, notifications] = await Promise.all([listOrders(), listAddresses(), listProducts(), listPaymentMethods(), getNotifications()]);
   return (
     <AccountScreen
       initial={{
@@ -19,6 +19,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
         orders,
         addresses,
         products, // lets the wishlist tab render saved items from shell.wishlist ids
+        paymentMethods,
+        notifications,
         today: new Date().toISOString(),
         tab: tab && TABS.includes(tab) ? tab : "overview",
       }}
