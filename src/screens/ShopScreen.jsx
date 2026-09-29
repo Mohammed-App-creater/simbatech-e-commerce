@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import MobileFilters from "@/components/MobileFilters";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -1404,429 +1405,433 @@ export default class ShopScreen extends Component {
             data-row
             data-sec="sidebar-grid"
           >
-            <aside
-              aria-label="Filters"
-              style={{
-                width: "280px",
-                flexShrink: "0",
-                boxSizing: "border-box",
-                border: "1px solid #EFEDE8",
-                borderRadius: "24px",
-                padding: "8px 20px 20px",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <fieldset
+            <MobileFilters>
+              <aside
+                aria-label="Filters"
                 style={{
-                  margin: "0",
-                  padding: "18px 0",
-                  border: "none",
-                  borderBottom: "1px solid #EFEDE8",
+                  width: "280px",
+                  flexShrink: "0",
+                  boxSizing: "border-box",
+                  border: "1px solid #EFEDE8",
+                  borderRadius: "24px",
+                  padding: "8px 20px 20px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "2px",
                 }}
               >
-                <legend
+                <fieldset
                   style={{
-                    padding: "0 0 10px",
-                    fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    letterSpacing: "-0.02em",
-                    float: "left",
-                    width: "100%",
+                    margin: "0",
+                    padding: "18px 0",
+                    border: "none",
+                    borderBottom: "1px solid #EFEDE8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
                   }}
                 >
-                  Category
-                </legend>
-                {(vals.catOpts || []).map((c, i0) => (
-                  <Fragment key={i0}>
-                    <label
-                      className="opt"
-                      style={{
-                        height: "44px",
-                        margin: "0 -8px",
-                        padding: "0 8px",
-                        borderRadius: "10px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input type="checkbox" checked={c.checked} onChange={c.toggle} />
-                      <span style={{ flexGrow: "1", fontWeight: "500" }} suppressHydrationWarning>
-                        {c.label}
-                      </span>
-                      <span style={{ fontSize: "13px", color: "#5E6470", fontVariantNumeric: "tabular-nums" }} suppressHydrationWarning>
-                        {c.count}
-                      </span>
+                  <legend
+                    style={{
+                      padding: "0 0 10px",
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      letterSpacing: "-0.02em",
+                      float: "left",
+                      width: "100%",
+                    }}
+                  >
+                    Category
+                  </legend>
+                  {(vals.catOpts || []).map((c, i0) => (
+                    <Fragment key={i0}>
+                      <label
+                        className="opt"
+                        style={{
+                          height: "44px",
+                          margin: "0 -8px",
+                          padding: "0 8px",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          fontSize: "14px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input type="checkbox" checked={c.checked} onChange={c.toggle} />
+                        <span style={{ flexGrow: "1", fontWeight: "500" }} suppressHydrationWarning>
+                          {c.label}
+                        </span>
+                        <span style={{ fontSize: "13px", color: "#5E6470", fontVariantNumeric: "tabular-nums" }} suppressHydrationWarning>
+                          {c.count}
+                        </span>
+                      </label>
+                    </Fragment>
+                  ))}
+                </fieldset>
+                <fieldset
+                  style={{
+                    margin: "0",
+                    padding: "18px 0 22px",
+                    border: "none",
+                    borderBottom: "1px solid #EFEDE8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "14px",
+                  }}
+                >
+                  <legend
+                    style={{
+                      padding: "0",
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      letterSpacing: "-0.02em",
+                      float: "left",
+                      width: "100%",
+                    }}
+                  >
+                    Price (ETB)
+                  </legend>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label style={{ flex: "1", display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", color: "#5E6470" }}>
+                      Min
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={vals.minP}
+                        onChange={vals.onMin}
+                        style={{
+                          height: "44px",
+                          boxSizing: "border-box",
+                          width: "100%",
+                          padding: "0 12px",
+                          border: "1px solid #E6E4DE",
+                          borderRadius: "12px",
+                          font: "inherit",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#111318",
+                        }}
+                        suppressHydrationWarning
+                      />
                     </label>
-                  </Fragment>
-                ))}
-              </fieldset>
-              <fieldset
-                style={{
-                  margin: "0",
-                  padding: "18px 0 22px",
-                  border: "none",
-                  borderBottom: "1px solid #EFEDE8",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "14px",
-                }}
-              >
-                <legend
+                    <span aria-hidden="true" style={{ paddingTop: "18px", color: "#5E6470" }}>
+                      –
+                    </span>
+                    <label style={{ flex: "1", display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", color: "#5E6470" }}>
+                      Max
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={vals.maxP}
+                        onChange={vals.onMax}
+                        style={{
+                          height: "44px",
+                          boxSizing: "border-box",
+                          width: "100%",
+                          padding: "0 12px",
+                          border: "1px solid #E6E4DE",
+                          borderRadius: "12px",
+                          font: "inherit",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#111318",
+                        }}
+                        suppressHydrationWarning
+                      />
+                    </label>
+                  </div>
+                  <div aria-hidden="true" style={{ position: "relative", height: "20px", margin: "0 9px" }}>
+                    {" "}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "-9px",
+                        right: "-9px",
+                        top: "8px",
+                        height: "4px",
+                        borderRadius: "999px",
+                        background: "#EFEDE8",
+                      }}
+                      data-abs="deco"
+                    />{" "}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: vals.trackLeft,
+                        width: vals.trackWidth,
+                        top: "8px",
+                        height: "4px",
+                        borderRadius: "999px",
+                        background: "#0D4F8B",
+                      }}
+                      data-abs="deco"
+                    />{" "}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: vals.trackLeft,
+                        top: "1px",
+                        marginLeft: "-9px",
+                        width: "18px",
+                        height: "18px",
+                        boxSizing: "border-box",
+                        borderRadius: "999px",
+                        background: "#FFFFFF",
+                        border: "3px solid #0D4F8B",
+                      }}
+                      data-abs="deco"
+                    />{" "}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: vals.trackRight,
+                        top: "1px",
+                        marginLeft: "-9px",
+                        width: "18px",
+                        height: "18px",
+                        boxSizing: "border-box",
+                        borderRadius: "999px",
+                        background: "#FFFFFF",
+                        border: "3px solid #0D4F8B",
+                      }}
+                      data-abs="deco"
+                    />{" "}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#5E6470" }}>
+                    <span>ETB 0</span>
+                    <span>ETB 150,000+</span>
+                  </div>
+                </fieldset>
+                <fieldset
                   style={{
-                    padding: "0",
-                    fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    letterSpacing: "-0.02em",
-                    float: "left",
-                    width: "100%",
+                    margin: "0",
+                    padding: "18px 0 22px",
+                    border: "none",
+                    borderBottom: "1px solid #EFEDE8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
                 >
-                  Price (ETB)
-                </legend>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <label style={{ flex: "1", display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", color: "#5E6470" }}>
-                    Min
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      value={vals.minP}
-                      onChange={vals.onMin}
-                      style={{
-                        height: "44px",
-                        boxSizing: "border-box",
-                        width: "100%",
-                        padding: "0 12px",
-                        border: "1px solid #E6E4DE",
-                        borderRadius: "12px",
-                        font: "inherit",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#111318",
-                      }}
-                    />
-                  </label>
-                  <span aria-hidden="true" style={{ paddingTop: "18px", color: "#5E6470" }}>
-                    –
+                  <legend
+                    style={{
+                      padding: "0",
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      letterSpacing: "-0.02em",
+                      float: "left",
+                      width: "100%",
+                    }}
+                  >
+                    Rental period
+                  </legend>
+                  <div
+                    role="group"
+                    aria-label="Rental period"
+                    style={{ display: "flex", gap: "4px", padding: "4px", background: "#F3F2EE", borderRadius: "14px" }}
+                  >
+                    {(vals.periods || []).map((r, i0) => (
+                      <Fragment key={i0}>
+                        <button
+                          type="button"
+                          onClick={r.pick}
+                          aria-pressed={r.aria}
+                          style={{
+                            flex: "1",
+                            height: "40px",
+                            border: "none",
+                            borderRadius: "11px",
+                            background: r.bg,
+                            color: r.fg,
+                            font: "inherit",
+                            fontSize: "13px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            boxShadow: r.shadow,
+                          }}
+                          suppressHydrationWarning
+                        >
+                          {r.label}
+                        </button>
+                      </Fragment>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
+                    Changes how rental prices are shown. Refundable deposit ETB [X] per item.
                   </span>
-                  <label style={{ flex: "1", display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", color: "#5E6470" }}>
-                    Max
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      value={vals.maxP}
-                      onChange={vals.onMax}
-                      style={{
-                        height: "44px",
-                        boxSizing: "border-box",
-                        width: "100%",
-                        padding: "0 12px",
-                        border: "1px solid #E6E4DE",
-                        borderRadius: "12px",
-                        font: "inherit",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#111318",
-                      }}
-                    />
-                  </label>
-                </div>
-                <div aria-hidden="true" style={{ position: "relative", height: "20px", margin: "0 9px" }}>
-                  {" "}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "-9px",
-                      right: "-9px",
-                      top: "8px",
-                      height: "4px",
-                      borderRadius: "999px",
-                      background: "#EFEDE8",
-                    }}
-                    data-abs="deco"
-                  />{" "}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: vals.trackLeft,
-                      width: vals.trackWidth,
-                      top: "8px",
-                      height: "4px",
-                      borderRadius: "999px",
-                      background: "#0D4F8B",
-                    }}
-                    data-abs="deco"
-                  />{" "}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: vals.trackLeft,
-                      top: "1px",
-                      marginLeft: "-9px",
-                      width: "18px",
-                      height: "18px",
-                      boxSizing: "border-box",
-                      borderRadius: "999px",
-                      background: "#FFFFFF",
-                      border: "3px solid #0D4F8B",
-                    }}
-                    data-abs="deco"
-                  />{" "}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: vals.trackRight,
-                      top: "1px",
-                      marginLeft: "-9px",
-                      width: "18px",
-                      height: "18px",
-                      boxSizing: "border-box",
-                      borderRadius: "999px",
-                      background: "#FFFFFF",
-                      border: "3px solid #0D4F8B",
-                    }}
-                    data-abs="deco"
-                  />{" "}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#5E6470" }}>
-                  <span>ETB 0</span>
-                  <span>ETB 150,000+</span>
-                </div>
-              </fieldset>
-              <fieldset
-                style={{
-                  margin: "0",
-                  padding: "18px 0 22px",
-                  border: "none",
-                  borderBottom: "1px solid #EFEDE8",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <legend
+                </fieldset>
+                <fieldset
                   style={{
-                    padding: "0",
-                    fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    letterSpacing: "-0.02em",
-                    float: "left",
-                    width: "100%",
+                    margin: "0",
+                    padding: "18px 0",
+                    border: "none",
+                    borderBottom: "1px solid #EFEDE8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
                   }}
                 >
-                  Rental period
-                </legend>
-                <div
-                  role="group"
-                  aria-label="Rental period"
-                  style={{ display: "flex", gap: "4px", padding: "4px", background: "#F3F2EE", borderRadius: "14px" }}
+                  <legend
+                    style={{
+                      padding: "0 0 10px",
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      letterSpacing: "-0.02em",
+                      float: "left",
+                      width: "100%",
+                    }}
+                  >
+                    Brand
+                  </legend>
+                  {(vals.brandOpts || []).map((b, i0) => (
+                    <Fragment key={i0}>
+                      <label
+                        className="opt"
+                        style={{
+                          height: "44px",
+                          margin: "0 -8px",
+                          padding: "0 8px",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          fontSize: "14px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input type="checkbox" checked={b.checked} onChange={b.toggle} />
+                        <span style={{ flexGrow: "1", fontWeight: "500" }} suppressHydrationWarning>
+                          {b.label}
+                        </span>
+                        <span style={{ fontSize: "13px", color: "#5E6470", fontVariantNumeric: "tabular-nums" }} suppressHydrationWarning>
+                          {b.count}
+                        </span>
+                      </label>
+                    </Fragment>
+                  ))}
+                </fieldset>
+                <fieldset
+                  style={{
+                    margin: "0",
+                    padding: "18px 0",
+                    border: "none",
+                    borderBottom: "1px solid #EFEDE8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                  }}
                 >
-                  {(vals.periods || []).map((r, i0) => (
+                  <legend
+                    style={{
+                      padding: "0 0 10px",
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      letterSpacing: "-0.02em",
+                      float: "left",
+                      width: "100%",
+                    }}
+                  >
+                    Rating
+                  </legend>
+                  {(vals.ratingOpts || []).map((r, i0) => (
+                    <Fragment key={i0}>
+                      <label
+                        className="opt"
+                        style={{
+                          height: "44px",
+                          margin: "0 -8px",
+                          padding: "0 8px",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          fontSize: "14px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input type="radio" name="rating" checked={r.checked} onChange={r.pick} />
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "500" }} suppressHydrationWarning>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
+                            <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
+                          </svg>
+                          {r.label}
+                        </span>
+                      </label>
+                    </Fragment>
+                  ))}
+                </fieldset>
+                <div style={{ padding: "14px 0 0", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  {(vals.switches || []).map((w, i0) => (
                     <Fragment key={i0}>
                       <button
                         type="button"
-                        onClick={r.pick}
-                        aria-pressed={r.aria}
+                        role="switch"
+                        aria-checked={w.aria}
+                        onClick={w.toggle}
                         style={{
-                          flex: "1",
-                          height: "40px",
+                          height: "48px",
+                          padding: "0",
                           border: "none",
-                          borderRadius: "11px",
-                          background: r.bg,
-                          color: r.fg,
+                          background: "transparent",
                           font: "inherit",
-                          fontSize: "13px",
-                          fontWeight: "600",
+                          color: "#111318",
                           cursor: "pointer",
-                          boxShadow: r.shadow,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          textAlign: "left",
                         }}
-                        suppressHydrationWarning
                       >
-                        {r.label}
+                        <span style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                          <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                            {w.label}
+                          </span>
+                          <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                            {w.sub}
+                          </span>
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: "relative",
+                            width: "44px",
+                            height: "26px",
+                            flexShrink: "0",
+                            borderRadius: "999px",
+                            background: w.track,
+                            transition: "background-color .2s ease",
+                          }}
+                        >
+                          {" "}
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: "3px",
+                              left: w.knob,
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "999px",
+                              background: "#FFFFFF",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                              transition: "left .2s ease",
+                            }}
+                            data-abs="deco"
+                          />{" "}
+                        </span>
                       </button>
                     </Fragment>
                   ))}
                 </div>
-                <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
-                  Changes how rental prices are shown. Refundable deposit ETB [X] per item.
-                </span>
-              </fieldset>
-              <fieldset
-                style={{
-                  margin: "0",
-                  padding: "18px 0",
-                  border: "none",
-                  borderBottom: "1px solid #EFEDE8",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                }}
-              >
-                <legend
-                  style={{
-                    padding: "0 0 10px",
-                    fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    letterSpacing: "-0.02em",
-                    float: "left",
-                    width: "100%",
-                  }}
-                >
-                  Brand
-                </legend>
-                {(vals.brandOpts || []).map((b, i0) => (
-                  <Fragment key={i0}>
-                    <label
-                      className="opt"
-                      style={{
-                        height: "44px",
-                        margin: "0 -8px",
-                        padding: "0 8px",
-                        borderRadius: "10px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input type="checkbox" checked={b.checked} onChange={b.toggle} />
-                      <span style={{ flexGrow: "1", fontWeight: "500" }} suppressHydrationWarning>
-                        {b.label}
-                      </span>
-                      <span style={{ fontSize: "13px", color: "#5E6470", fontVariantNumeric: "tabular-nums" }} suppressHydrationWarning>
-                        {b.count}
-                      </span>
-                    </label>
-                  </Fragment>
-                ))}
-              </fieldset>
-              <fieldset
-                style={{
-                  margin: "0",
-                  padding: "18px 0",
-                  border: "none",
-                  borderBottom: "1px solid #EFEDE8",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "2px",
-                }}
-              >
-                <legend
-                  style={{
-                    padding: "0 0 10px",
-                    fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    letterSpacing: "-0.02em",
-                    float: "left",
-                    width: "100%",
-                  }}
-                >
-                  Rating
-                </legend>
-                {(vals.ratingOpts || []).map((r, i0) => (
-                  <Fragment key={i0}>
-                    <label
-                      className="opt"
-                      style={{
-                        height: "44px",
-                        margin: "0 -8px",
-                        padding: "0 8px",
-                        borderRadius: "10px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input type="radio" name="rating" checked={r.checked} onChange={r.pick} />
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "500" }} suppressHydrationWarning>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
-                          <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
-                        </svg>
-                        {r.label}
-                      </span>
-                    </label>
-                  </Fragment>
-                ))}
-              </fieldset>
-              <div style={{ padding: "14px 0 0", display: "flex", flexDirection: "column", gap: "4px" }}>
-                {(vals.switches || []).map((w, i0) => (
-                  <Fragment key={i0}>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={w.aria}
-                      onClick={w.toggle}
-                      style={{
-                        height: "48px",
-                        padding: "0",
-                        border: "none",
-                        background: "transparent",
-                        font: "inherit",
-                        color: "#111318",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        textAlign: "left",
-                      }}
-                    >
-                      <span style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                        <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
-                          {w.label}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
-                          {w.sub}
-                        </span>
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          position: "relative",
-                          width: "44px",
-                          height: "26px",
-                          flexShrink: "0",
-                          borderRadius: "999px",
-                          background: w.track,
-                          transition: "background-color .2s ease",
-                        }}
-                      >
-                        {" "}
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "3px",
-                            left: w.knob,
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "999px",
-                            background: "#FFFFFF",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                            transition: "left .2s ease",
-                          }}
-                          data-abs="deco"
-                        />{" "}
-                      </span>
-                    </button>
-                  </Fragment>
-                ))}
-              </div>
-            </aside>
+              </aside>
+            </MobileFilters>
             <div style={{ flexGrow: "1", minWidth: "0", display: "flex", flexDirection: "column", gap: "36px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "20px" }} data-cols="3">
                 {(vals.first || []).map((p, i0) => (

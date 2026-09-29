@@ -2037,6 +2037,7 @@ export default class CartScreen extends Component {
                               color: "#111318",
                               textTransform: "uppercase",
                             }}
+                            suppressHydrationWarning
                           />
                           <button
                             type="button"

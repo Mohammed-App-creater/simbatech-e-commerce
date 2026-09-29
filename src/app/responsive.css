@@ -150,7 +150,7 @@ nav[aria-label="Departments"]::-webkit-scrollbar,
   }
 
   /* Shop: narrower filter column, two product columns */
-  [data-row] > aside {
+  [data-row] aside[aria-label="Filters"] {
     width: 240px !important;
   }
 
@@ -302,7 +302,7 @@ nav[aria-label="Departments"]::-webkit-scrollbar,
   }
 
   [data-row] > *,
-  [data-row] > aside {
+  [data-row] aside[aria-label="Filters"] {
     width: auto !important;
     flex-shrink: 1 !important;
   }

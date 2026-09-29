@@ -1,0 +1,158 @@
+/* Desktop / tablet: the wrappers disappear from layout and the sidebar renders in place. */
+.mf,
+.mf-sheet,
+.mf-body {
+  display: contents;
+}
+
+.mf-toggle,
+.mf-backdrop,
+.mf-head,
+.mf-foot {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mf {
+    display: block;
+  }
+
+  .mf-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border: 1.5px solid #0d4f8b;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0d4f8b;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .mf-toggle svg,
+  .mf-close svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .mf-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(10, 20, 35, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .mf-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 61;
+    max-height: 86vh;
+    border-radius: 24px 24px 0 0;
+    background: #ffffff;
+    box-shadow: 0 -20px 50px -20px rgba(10, 20, 35, 0.4);
+    transform: translateY(105%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    visibility: hidden;
+  }
+
+  .mf[data-open] .mf-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mf[data-open] .mf-sheet {
+    transform: none;
+    visibility: visible;
+  }
+
+  .mf-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 20px 12px;
+    border-bottom: 1px solid #efede8;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+  }
+
+  .mf-grip {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 999px;
+    background: #dcdad4;
+  }
+
+  .mf-close {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 999px;
+    background: #f3f2ee;
+    color: #111318;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .mf-body {
+    display: block;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 20px;
+  }
+
+  /* the sidebar card itself: drop its border and fixed width inside the sheet */
+  .mf-body > aside {
+    width: auto !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .mf-foot {
+    display: block;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid #efede8;
+  }
+
+  .mf-apply {
+    width: 100%;
+    height: 52px;
+    border: none;
+    border-radius: 14px;
+    background: #2f7a3c;
+    color: #ffffff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  html.mf-lock,
+  html.mf-lock body {
+    overflow: hidden;
+  }
+}

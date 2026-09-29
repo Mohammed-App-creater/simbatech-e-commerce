@@ -1060,6 +1060,7 @@ export default class SignInScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                           <button
                             type="button"

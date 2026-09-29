@@ -1915,6 +1915,7 @@ export default class ProductScreen extends Component {
                             fontSize: "15px",
                             color: "#111318",
                           }}
+                          suppressHydrationWarning
                         />
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

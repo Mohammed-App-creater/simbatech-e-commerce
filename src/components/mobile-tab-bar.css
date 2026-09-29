@@ -1,0 +1,73 @@
+.mtb {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mtb {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: saturate(1.4) blur(14px);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    border-top: 1px solid #efede8;
+    box-shadow: 0 -8px 24px -16px rgba(10, 20, 35, 0.35);
+    font-family: "Geist", system-ui, sans-serif;
+  }
+
+  /* keep the last bit of every page clear of the bar */
+  body:has(.mtb) {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .mtb-item {
+    height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-radius: 14px;
+    color: #5e6470;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mtb-item svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mtb-item[aria-current="page"] {
+    color: #0d4f8b;
+  }
+
+  .mtb-item[aria-current="page"] svg {
+    stroke-width: 2.2;
+  }
+
+  .mtb-item[aria-current="page"]::after {
+    content: "";
+    width: 18px;
+    height: 3px;
+    margin-top: 1px;
+    border-radius: 999px;
+    background: #2f7a3c;
+  }
+
+  .mtb-item:active {
+    background: #f3f2ee;
+  }
+}

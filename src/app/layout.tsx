@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import MobileTabBar from "@/components/MobileTabBar";
 import "./fonts.css";
 import "./globals.css";
 import "./responsive.css";
+import "./mobile.css";
 
 export const metadata: Metadata = {
   title: "Simbatech",
@@ -11,12 +13,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#0D4F8B",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <MobileTabBar />
+      </body>
     </html>
   );
 }

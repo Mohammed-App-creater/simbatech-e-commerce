@@ -1,0 +1,593 @@
+/*
+ * Phone polish, layered on top of responsive.css.
+ *
+ * responsive.css makes every screen fit; this file makes the small-screen versions feel designed
+ * for a phone: compact header, app-style product cards, banners with the art beside the copy,
+ * product info straight after the photos, swipeable rows. Same approach as responsive.css:
+ * the generated screens keep the design's inline styles, so rules key on data-* hooks and
+ * serialized inline styles, with !important.
+ */
+
+/* ── Everything ≤ 1024px ───────────────────────────────────── */
+@media (max-width: 1024px) {
+  /* An <input>'s intrinsic width counts toward its flex parent's minimum size; without this
+     the search form can't shrink below ~410px and runs off the screen. */
+  header > form[role="search"] {
+    min-width: 0 !important;
+  }
+
+  header > form[role="search"] input {
+    width: 0;
+  }
+
+  /* A full-width row (e.g. the shop's rental-bundle banner, `span 3`) must not create extra
+     implicit columns once its grid has fewer columns than on desktop. */
+  [data-cols]:not([data-cols="12"]) > [data-span] {
+    grid-column: 1 / -1 !important;
+  }
+
+  header > a[aria-label="Simbatech home"] + .ghost {
+    margin-left: auto;
+  }
+}
+
+/* ── Phones ≤ 768px ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Utility bar: a slim strip */
+  [data-sec="utility-bar"] {
+    height: 34px !important;
+    font-size: 12px !important;
+  }
+
+  [data-sec="utility-bar"] button {
+    height: 24px !important;
+    font-size: 12px !important;
+  }
+
+  /* Header */
+  header {
+    column-gap: 8px !important;
+    padding-top: 10px !important;
+    padding-bottom: 12px !important;
+  }
+
+  header > .ghost {
+    width: 44px;
+    height: 44px !important;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 14px !important;
+  }
+
+  header > a[href="/signin"] > span:first-child,
+  header > a[aria-label^="Wishlist"] {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  header > a[href="/cart"] {
+    height: 44px !important;
+    border-radius: 14px !important;
+  }
+
+  header > a[href="/cart"] > span:first-child {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  header > form[role="search"] {
+    height: 48px !important;
+    border-radius: 14px !important;
+  }
+
+  header > form[role="search"] [role="group"] button {
+    padding: 0 10px !important;
+  }
+
+  header > form[role="search"] input {
+    font-size: 14px !important;
+    padding: 0 4px !important;
+  }
+
+  header > form[role="search"] button[type="submit"] {
+    width: 38px;
+    height: 36px !important;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  /* Category nav: fade the scroll edge so it reads as swipeable */
+  nav[aria-label="Departments"] {
+    height: 46px !important;
+    font-size: 13px !important;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+
+  /* Section rhythm */
+  [style*="padding:96px"] {
+    padding-top: 48px !important;
+  }
+
+  section > div[style*="justify-content:space-between"] > a {
+    font-size: 14px !important;
+  }
+
+  /* ── Product cards (2-up) ── */
+  [data-cols]:has(> article.lift) {
+    gap: 12px !important;
+  }
+
+  article.lift {
+    padding: 8px 8px 12px !important;
+    gap: 10px !important;
+    border-radius: 20px !important;
+  }
+
+  article.lift > a[aria-label]:first-child {
+    height: 150px !important;
+    border-radius: 14px !important;
+  }
+
+  article.lift > a[aria-label]:first-child > div[style*="zoom"] {
+    zoom: 0.64 !important;
+  }
+
+  article.lift > a[aria-label]:first-child > span {
+    top: 8px !important;
+    left: 8px !important;
+    height: 22px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+  }
+
+  /* wishlist heart overlaps the image corner */
+  article.lift > button[aria-pressed] {
+    width: 34px !important;
+    height: 34px !important;
+    margin: -52px 8px 8px auto !important;
+  }
+
+  article.lift > div {
+    padding: 0 4px !important;
+    margin-top: -6px !important;
+  }
+
+  article.lift a[style*="font-size:17px"],
+  article.lift a[style*="font-size:15px"] {
+    font-size: 14px !important;
+    line-height: 1.3;
+  }
+
+  /* price stack: price on its own line, button full width underneath */
+  article.lift div[style*="align-items:flex-end"][style*="justify-content:space-between"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  article.lift div[style*="align-items:flex-end"][style*="justify-content:space-between"] > button {
+    width: 100%;
+    height: 40px !important;
+  }
+
+  article.lift span[style*="font-size:18px"],
+  article.lift span[style*="font-size:17px"] {
+    font-size: 16px !important;
+    white-space: nowrap;
+  }
+
+  article.lift [style*="align-items:baseline"] {
+    flex-wrap: wrap;
+    row-gap: 0 !important;
+  }
+
+  article.lift [style*="align-items:baseline"] > span {
+    white-space: nowrap;
+  }
+
+  article.lift > button:last-child {
+    height: 40px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+  }
+
+  /* ── Banners: copy on the left, art on the right ── */
+  [data-banner]:not([data-sec="hero"] > [data-rowspan="2"]):not([data-sec="left-brand-panel"]) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    column-gap: 8px !important;
+  }
+
+  [data-banner]:not([data-sec="hero"] > [data-rowspan="2"]):not([data-sec="left-brand-panel"]) > [data-abs="text"] {
+    grid-column: 1;
+  }
+
+  [data-banner]:not([data-sec="hero"] > [data-rowspan="2"]):not([data-sec="left-brand-panel"]) > [data-abs="art"] {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: end;
+    zoom: 0.58 !important;
+    margin-right: -10px !important;
+  }
+
+  [data-banner]:not([data-sec="hero"] > [data-rowspan="2"]):not([data-sec="left-brand-panel"]) > [data-abs="misc"] {
+    grid-column: 1 / -1;
+  }
+
+  [data-banner] > [data-abs="text"] {
+    gap: 14px !important;
+  }
+
+
+  /* Home hero art a touch smaller */
+  [data-sec="hero"] > [data-rowspan="2"] > [data-abs="art"] {
+    zoom: 0.85 !important;
+  }
+
+  /* Flash deals: header stacks (title + timer, then "See all"); cards become a swipeable row */
+  [data-sec="flash-deals"] > div {
+    overflow: hidden;
+  }
+
+  [data-sec="flash-deals"] > div > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  [data-sec="flash-deals"] > div > div:first-child > a {
+    height: auto !important;
+  }
+
+  [data-sec="flash-deals"] [style*="height:44px"][style*="border-radius:12px"] {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  [data-sec="flash-deals"] [data-cols="5"] {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin: 0 -20px !important;
+    padding: 0 20px 4px !important;
+    scroll-padding: 0 20px;
+  }
+
+  [data-sec="flash-deals"] [data-cols="5"] > * {
+    flex: 0 0 46%;
+    scroll-snap-align: start;
+  }
+
+  /* Brands: three small tiles per row */
+  [data-sec="brands"] [data-cols="6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  [data-sec="brands"] [data-cols="6"] > a {
+    height: 64px !important;
+    border-radius: 16px !important;
+    font-size: 17px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  [data-sec="brands"] [data-cols="6"] > a[style*="Instrument Serif"] {
+    font-size: 22px !important;
+    letter-spacing: 0 !important;
+  }
+
+  [data-sec="brands"] [data-cols="6"] > a > span {
+    width: 11px !important;
+    height: 11px !important;
+    border-width: 3px !important;
+  }
+
+  /* App + "why" cards: no fixed heights on phones */
+  [data-sec="app-why"] > div {
+    height: auto !important;
+  }
+
+  [data-sec="app-why"] > div:last-child {
+    padding: 24px !important;
+  }
+
+  /* ── Shop ── */
+  [data-sec="toolbar"] {
+    gap: 12px !important;
+  }
+
+  [data-sec="recently-viewed"] [data-cols] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [data-sec="pagination"] {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    gap: 12px !important;
+  }
+
+  /* ── Product page: photos → title/price/book → delivery → guarantees ── */
+  [data-sec="left-gallery-delivery"] {
+    display: contents !important;
+  }
+
+  [data-sec="product-hero"] > [data-sec="right-info-panel"] {
+    order: 3;
+  }
+
+  [data-sec="left-gallery-delivery"] > [data-sec="delivery-estimator"] {
+    order: 4;
+  }
+
+  [data-sec="left-gallery-delivery"] > [data-sec="assurance-row"] {
+    order: 5;
+  }
+
+  [data-sec="product-hero"] {
+    gap: 14px !important;
+    align-items: stretch !important;
+  }
+
+  /* the gallery box is absolutely-positioned inside; it needs an explicit width once hoisted */
+  [data-sec="product-hero"] [aria-label="Product images"] {
+    width: 100% !important;
+    align-self: stretch;
+  }
+
+  [aria-label="Choose an image"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: -4px;
+  }
+
+  [aria-label="Choose an image"] > * {
+    height: 72px !important;
+    border-radius: 14px !important;
+  }
+
+  [aria-label="Choose an image"] div[style*="zoom"] {
+    zoom: 0.3 !important;
+  }
+
+  [data-row] [data-sec="assurance-row"][data-cols] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto !important;
+    padding: 4px 0 !important;
+  }
+
+  [data-sec="assurance-row"] > div {
+    border-left: none !important;
+    padding: 12px 16px !important;
+  }
+
+  [data-sec="assurance-row"] > div + div {
+    border-top: 1px solid #efede8;
+  }
+
+  /* horizontal, swipeable "rent the set" row */
+  [data-sec="frequently-rented-together"] > div {
+    padding: 22px 0 22px 20px !important;
+    overflow: hidden;
+  }
+
+  [data-sec="frequently-rented-together"] > div > div:first-child {
+    padding-right: 20px;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  [data-sec="frequently-rented-together"] > div > div:first-child > div {
+    width: auto !important;
+  }
+
+  [data-sec="frequently-rented-together"] > div > div:last-child {
+    height: auto !important;
+    align-items: stretch !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding-right: 20px;
+  }
+
+  [data-sec="frequently-rented-together"] > div > div:last-child > * {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  /* ── Checkout ── */
+  header ol {
+    order: 10;
+    flex-basis: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  header ol > li {
+    flex-shrink: 0;
+  }
+
+  [aria-label="Delivery day"] {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  [aria-label="Delivery day"] > * {
+    flex-shrink: 0;
+  }
+
+  /* Form fields: one per row */
+  [data-sec="contact"] [data-cols="3"],
+  [data-sec="delivery-address"] [data-cols] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Rental schedule: thumbnail above the dates instead of squeezing them */
+  [data-sec="rental-schedule"] > div:last-child {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  [data-sec="rental-schedule"] > div:last-child > div:last-child {
+    width: 100%;
+  }
+
+  [data-sec="rental-schedule"] [data-cols="2"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [data-sec="contact"] input,
+  [data-sec="delivery-address"] input {
+    width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* ── Order confirmed ── */
+  [data-sec="success-block"] > div > [data-abs="art"] {
+    display: none !important;
+  }
+
+  [data-sec="success-block"] > div > [data-abs="text"] {
+    margin: 28px 20px !important;
+  }
+
+  [data-sec="success-block"] > div {
+    min-height: 0;
+  }
+
+  /* tracking steps as a vertical timeline */
+  [data-sec="tracking-timeline"] ol {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+
+  [data-sec="tracking-timeline"] ol > li {
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  [data-sec="tracking-timeline"] ol > li > div {
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 40px;
+    flex-shrink: 0;
+  }
+
+  [data-sec="tracking-timeline"] ol > li > div > :not(:first-child) {
+    width: 2px !important;
+    height: auto !important;
+    min-height: 22px;
+    flex: 1 1 auto !important;
+    margin: 4px 0 !important;
+  }
+
+  [data-sec="tracking-timeline"] ol > li:last-child > div > :not(:first-child) {
+    display: none !important;
+  }
+
+  [data-sec="tracking-timeline"] ol > li > span {
+    padding: 8px 0 18px;
+  }
+
+  /* ── Account: profile, then the page, nav as swipeable chips ── */
+  [data-sec="sidebar"] {
+    display: contents !important;
+  }
+
+  [data-sec="sidebar"] > div:first-child {
+    order: 1;
+    padding: 16px !important;
+    gap: 14px !important;
+  }
+
+  [data-sec="account-body"] > [data-sec="main-panel"] {
+    order: 2;
+  }
+
+  [data-sec="sidebar"] > div:last-child {
+    order: 3;
+  }
+
+  nav[aria-label="Account"] {
+    flex-direction: row !important;
+    gap: 8px !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px !important;
+    padding: 2px 16px 4px !important;
+    border-top: none !important;
+  }
+
+  nav[aria-label="Account"] > * {
+    flex: 0 0 auto;
+    width: auto !important;
+    height: 40px !important;
+    gap: 8px !important;
+    padding: 0 14px !important;
+    margin: 0 !important;
+    border: 1px solid #efede8 !important;
+    border-radius: 999px !important;
+    white-space: nowrap;
+  }
+
+  nav[aria-label="Account"] > * > span:last-child:not(:first-child) {
+    margin-left: 2px;
+  }
+
+  /* ── Sign in: compact brand header, form first on screen ── */
+  [data-sec="left-brand-panel"] {
+    padding: 22px var(--gutter) 26px !important;
+    gap: 0 !important;
+  }
+
+  [data-sec="left-brand-panel"] > [data-abs="art"],
+  [data-sec="left-brand-panel"] > [data-abs="misc"],
+  [data-sec="left-brand-panel"] ul {
+    display: none !important;
+  }
+
+  [data-sec="left-brand-panel"] > [data-abs="text"] {
+    gap: 16px !important;
+  }
+
+  [data-sec="left-brand-panel"] > [data-abs="text"] > * {
+    margin-top: 0 !important;
+  }
+}
+
+/* ── Small phones ≤ 480px ──────────────────────────────────── */
+@media (max-width: 480px) {
+  header > a[aria-label^="Wishlist"] {
+    display: none !important;
+  }
+
+  header > a[aria-label="Simbatech home"] > img {
+    height: 36px !important;
+  }
+
+  /* hide the Buy/Rent toggle label padding a bit more */
+  header > form[role="search"] [role="group"] {
+    padding: 2px !important;
+  }
+
+  article.lift > a[aria-label]:first-child {
+    height: 136px !important;
+  }
+
+  article.lift > a[aria-label]:first-child > div[style*="zoom"] {
+    zoom: 0.58 !important;
+  }
+}

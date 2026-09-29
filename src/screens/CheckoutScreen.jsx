@@ -612,6 +612,7 @@ export default class CheckoutScreen extends Component {
                           fontSize: "15px",
                           color: "#111318",
                         }}
+                        suppressHydrationWarning
                       />
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -636,6 +637,7 @@ export default class CheckoutScreen extends Component {
                           fontSize: "15px",
                           color: "#111318",
                         }}
+                        suppressHydrationWarning
                       />
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -660,6 +662,7 @@ export default class CheckoutScreen extends Component {
                           fontSize: "15px",
                           color: "#111318",
                         }}
+                        suppressHydrationWarning
                       />
                     </div>
                   </div>
@@ -874,6 +877,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -898,6 +902,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -922,6 +927,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                       </div>
@@ -1460,6 +1466,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <div
@@ -1537,6 +1544,7 @@ export default class CheckoutScreen extends Component {
                               color: "#111318",
                               fontVariantNumeric: "tabular-nums",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1562,6 +1570,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1587,6 +1596,7 @@ export default class CheckoutScreen extends Component {
                               fontSize: "15px",
                               color: "#111318",
                             }}
+                            suppressHydrationWarning
                           />
                         </div>
                         <span
@@ -1679,6 +1689,7 @@ export default class CheckoutScreen extends Component {
                             fontSize: "15px",
                             color: "#111318",
                           }}
+                          suppressHydrationWarning
                         />
                       </div>
                     </>

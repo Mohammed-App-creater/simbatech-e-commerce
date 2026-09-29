@@ -341,8 +341,11 @@ class Conv:
                     out.append('defaultValue=' + json.dumps(dict(c.attrs).get('value', '')))
         if n.tag == 'form' and 'sc-camel-on-submit' not in a:
             out.append('onSubmit={preventSubmit}')
-        # text bindings directly inside -> allow time-based values to differ between server and client
-        if any(isinstance(c, str) and BIND.search(c) for c in n.children):
+        # Bound text or bound form values (countdowns, dates) are computed from the clock, so the prerendered
+        # HTML and the first client render can legitimately differ; React re-renders them either way.
+        bound_text = any(isinstance(c, str) and BIND.search(c) for c in n.children)
+        bound_value = n.tag == 'input' and any(k in ('value', 'min', 'max') and v and BIND.search(v) for k, v in n.attrs)
+        if bound_text or bound_value:
             out.append('suppressHydrationWarning')
         return out
 
@@ -373,6 +376,14 @@ class Conv:
             return f'{self.ind()}<Render kind={{{kind[0]}}} />'
         if tag == 'helmet':
             return None
+        if tag == 'aside' and a.get('aria-label') == 'Filters' and not getattr(n, 'wrapped', False):
+            # Phones get the filter sidebar as a bottom sheet (see src/components/MobileFilters.jsx).
+            n.wrapped = True
+            self.filters = True
+            self.depth += 1
+            inner = self.node(n, flex_parent)
+            self.depth -= 1
+            return f'{self.ind()}<MobileFilters>\n{inner}\n{self.ind()}</MobileFilters>'
         if tag == 'footer':
             # Every page shares one footer component (see src/components/SiteFooter.jsx).
             first = next((c for c in n.children if not isinstance(c, str)), None)
@@ -421,6 +432,7 @@ def convert(path, name, images, is_render=False):
     cv = Conv(images)
     cv.depth = 3
     cv.footer = False
+    cv.filters = False
     roots[0].is_root = not is_render
     jsx = cv.node(roots[0])
     uses_link = '<Link' in jsx
@@ -431,6 +443,8 @@ def convert(path, name, images, is_render=False):
         imports.append("import Render from '@/components/Render';")
     if cv.footer:
         imports.append("import SiteFooter from '@/components/SiteFooter';")
+    if cv.filters:
+        imports.append("import MobileFilters from '@/components/MobileFilters';")
     out = '\n'.join(imports) + '\n\n'
     out += '/* eslint-disable */\n// Generated from the Simbatech design export. Markup and logic mirror the original 1:1.\n\n'
     out += logic + '\n\n'

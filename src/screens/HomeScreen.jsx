@@ -2601,7 +2601,7 @@ export default class HomeScreen extends Component {
                       {vals.days} {vals.dayWord}
                     </span>
                   </div>
-                  <input id="days" type="range" min="1" max="30" value={vals.days} onChange={vals.onDays} />
+                  <input id="days" type="range" min="1" max="30" value={vals.days} onChange={vals.onDays} suppressHydrationWarning />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#5E6470" }}>
                     <span>1 day</span>
                     <span>30 days</span>
