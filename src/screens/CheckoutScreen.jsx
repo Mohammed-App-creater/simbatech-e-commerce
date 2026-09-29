@@ -4,43 +4,21 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { shopState, connectShop, navigate, placeOrder } from "@/lib/client/store";
+import { computeTotals, SAME_DAY_FEE, DAY_MS, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-// Sample cart (same as /cart): purchases ETB 104,500, camera rental ETB 6,900 (3 days).
-var PURCHASES = 104500;
-var RENTALS = 6900;
-// PLACEHOLDER: sample delivery fees. Same-day costs extra; other days are free because purchases are over the sample ETB 100,000 threshold.
-var SAME_DAY_FEE = 450;
-var LINES = [
-  { name: "Lumen Z6 Camera", kind: "camera", bg: "#E0F1FF", qty: 1, meta: "Rental · 3 Oct – 6 Oct", price: 6900, rent: true },
-  { name: "Linen 3-Seater Sofa", kind: "sofa", bg: "#F3EEE6", qty: 1, meta: "Purchase · Qty 1", price: 84900 },
-  { name: "Street Runner Sneakers", kind: "sneaker", bg: "#FFE4EF", qty: 2, meta: "Purchase · Qty 2 × ETB 9,800", price: 19600 },
-];
-var ADDRS = [
-  { id: "home", label: "Home", line1: "[ADDRESS LINE], [AREA]", line2: "[CITY] · [PHONE]" },
-  { id: "work", label: "Work", line1: "[ADDRESS LINE], [AREA]", line2: "[CITY] · Reception, [HOURS]" },
-];
-// Today is Mon 28 Sep 2026 in this mock.
-var DAYS = [
-  { id: "today", label: "Today", sub: "Mon 28 Sep" },
-  { id: "tomorrow", label: "Tomorrow", sub: "Tue 29 Sep" },
-  { id: "date", label: "Pick a date", sub: "" },
-];
-var DATES = [
-  { id: "d30", dow: "Wed", day: "30 Sep" },
-  { id: "d1", dow: "Thu", day: "1 Oct" },
-  { id: "d2", dow: "Fri", day: "2 Oct" },
-  { id: "d3", dow: "Sat", day: "3 Oct" },
-  { id: "d5", dow: "Mon", day: "5 Oct" },
-];
+var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var WINDOWS = [
   { id: "w1", label: "9am – 12pm" },
   { id: "w2", label: "12pm – 3pm" },
   { id: "w3", label: "3pm – 6pm" },
   { id: "w4", label: "6pm – 8pm" },
 ];
+// The design's internal id "mpesa" is Telebirr.
 var PAYS = [
   { id: "mpesa", title: "Telebirr", sub: "Pay instantly from your phone", chip: "TELEBIRR", chipFg: "#1F9D55", chipStyle: "normal" },
   { id: "card", title: "Debit or credit card", sub: "Visa or Mastercard", chip: "VISA", chipFg: "#1A1F71", chipStyle: "italic" },
@@ -53,6 +31,7 @@ var PAYS = [
     chipStyle: "normal",
   },
 ];
+var PAY_METHOD = { mpesa: "telebirr", card: "card", cod: "cod" };
 var BLUE = "#0D4F8B",
   GREEN = "#2F7A3C",
   GREY = "#B4B8BF";
@@ -69,23 +48,61 @@ function digits(v, max) {
     .replace(/\D/g, "")
     .slice(0, max);
 }
+// Dates are handled as UTC midnights of yyyy-mm-dd strings so server and client render the same labels.
+function isoDate(s) {
+  return new Date(s + "T00:00:00Z");
+}
+function toIso(d) {
+  return d.toISOString().slice(0, 10);
+}
+function addDays(iso, n) {
+  return toIso(new Date(isoDate(iso).getTime() + n * DAY_MS));
+}
+function dayMonth(iso) {
+  var d = isoDate(iso);
+  return d.getUTCDate() + " " + MON[d.getUTCMonth()];
+}
+function dow(iso) {
+  return DOW[isoDate(iso).getUTCDay()];
+}
+function longDate(iso) {
+  return dow(iso) + " " + dayMonth(iso) + " " + isoDate(iso).getUTCFullYear();
+}
+// Field paths the checkout API reports ({ error, field }) -> which inline slot shows the message.
+var FIELD_SLOTS = {
+  "contact.name": "name",
+  "contact.phone": "phone",
+  "contact.email": "email",
+  "newAddress.line1": "newLine",
+  "newAddress.area": "newArea",
+  "newAddress.city": "newCity",
+  "payment.phone": "mpesa",
+  "payment.cardLast4": "cardNo",
+};
 
 class Component extends React.Component {
   constructor(props) {
     super(props);
+    var initial = props.initial || {};
+    var user = initial.user || null;
+    var addrs = initial.addresses || [];
+    var def =
+      addrs.filter(function (a) {
+        return a.isDefault;
+      })[0] || addrs[0];
     this.state = {
-      name: "",
-      phone: "",
-      email: "",
-      addr: "home",
+      name: user ? user.name || "" : "",
+      phone: user ? user.phone || "" : "",
+      email: user ? user.email || "" : "",
+      addr: def ? def.id : "new",
       newLine: "",
       newArea: "",
       newCity: "",
       day: "tomorrow",
-      date: "d1",
+      date: "",
       win: "w2",
       pay: "mpesa",
-      mpesa: "",
+      mpesa: user ? user.phone || "" : "",
       cardNo: "",
       cardExp: "",
       cardCvc: "",
@@ -93,22 +110,70 @@ class Component extends React.Component {
       billAddr: "",
       terms: false,
       termsError: "",
+      errors: {}, // slot -> message from the API
+      orderError: "",
+      submitting: false,
     };
+    this.frozenCart = null;
+  }
+  componentDidMount() {
+    this.unsubShop = connectShop(this);
+  }
+  componentWillUnmount() {
+    this.unsubShop && this.unsubShop();
   }
   renderVals() {
     var self = this;
     var s = this.state || {};
+    var initial = this.props.initial || {};
+    var shop = shopState(initial);
+    var errors = s.errors || {};
     var set = function (k, fn) {
       return function (e) {
         var o = {};
         o[k] = fn ? fn(e.target.value) : e.target.value;
+        if ((self.state.errors || {})[k]) {
+          var er = Object.assign({}, self.state.errors);
+          delete er[k];
+          o.errors = er;
+        }
         self.setState(o);
       };
     };
 
+    // Cart (frozen while the order is being placed, so the summary doesn't empty before we navigate)
+    var c = (s.submitting && self.frozenCart) || shop.cart || { lines: [], promo: null, totals: null };
+    var cartLines = c.lines || [];
+    var rentalLines = cartLines.filter(function (l) {
+      return l.mode === "rent";
+    });
+    var buyLines = cartLines.filter(function (l) {
+      return l.mode === "buy";
+    });
+
+    // Dates from the server's "today"
+    var todayIso = initial.todayLocal || String(initial.today || "").slice(0, 10) || "1970-01-01";
+    var tomorrowIso = addDays(todayIso, 1);
+    var DAYS = [
+      { id: "today", label: "Today", sub: dow(todayIso) + " " + dayMonth(todayIso), iso: todayIso },
+      { id: "tomorrow", label: "Tomorrow", sub: dow(tomorrowIso) + " " + dayMonth(tomorrowIso), iso: tomorrowIso },
+      { id: "date", label: "Pick a date", sub: "" },
+    ];
+    // Next five delivery days after tomorrow (no deliveries on Sundays).
+    var DATES = [];
+    for (var n = 2; DATES.length < 5 && n < 14; n++) {
+      var iso = addDays(todayIso, n);
+      if (isoDate(iso).getUTCDay() !== 0) DATES.push({ id: iso, dow: dow(iso), day: dayMonth(iso) });
+    }
+    var selDate = s.date || DATES[0].id;
+
     // Completion
     var contactDone = !!(s.name && s.name.trim().length > 1 && digits(s.phone, 15).length >= 9 && /.+@.+\..+/.test(s.email || ""));
-    var isNew = s.addr === "new";
+    var addrsL = initial.addresses || [];
+    var isNew = s.addr === "new" || addrsL.length === 0;
+    // Pick-up (from /checkout?fulfilment=pickup) only applies to purchase-only carts: rentals are always delivered and collected.
+    var pickupAsked = initial.fulfilment === "pickup";
+    var pickup = pickupAsked && rentalLines.length === 0;
     var addrDone = !isNew || !!(s.newLine && s.newLine.trim() && s.newCity && s.newCity.trim());
     var isToday = s.day === "today";
     var slotDone = !!s.win && !(isToday && s.win === "w1");
@@ -118,7 +183,7 @@ class Component extends React.Component {
       (s.pay === "card" && digits(s.cardNo, 19).length >= 15 && digits(s.cardExp, 4).length === 4 && digits(s.cardCvc, 4).length >= 3);
     var billingOk = s.billingSame || !!(s.billAddr && s.billAddr.trim());
     var detailsDone = contactDone;
-    var deliveryDone = addrDone && slotDone;
+    var deliveryDone = pickup || (addrDone && slotDone);
     var paymentDone = payValid && billingOk && !!s.terms;
 
     var flags = [detailsDone, deliveryDone, paymentDone];
@@ -149,9 +214,13 @@ class Component extends React.Component {
       return ok ? GREEN : "#5E6470";
     };
 
-    var addresses = ADDRS.map(function (a) {
-      var on = s.addr === a.id;
-      return Object.assign({}, a, {
+    var addresses = addrsL.map(function (a) {
+      var on = !isNew && s.addr === a.id;
+      return {
+        id: a.id,
+        label: a.label,
+        line1: [a.line1, a.area].filter(Boolean).join(", "),
+        line2: [a.city, a.phone || a.notes].filter(Boolean).join(" · "),
         aria: on ? "true" : "false",
         border: on ? BLUE : "#EFEDE8",
         bg: on ? "#EAF3FA" : "#FFFFFF",
@@ -160,7 +229,7 @@ class Component extends React.Component {
         pick: function () {
           self.setState({ addr: a.id });
         },
-      });
+      };
     });
 
     var days = DAYS.map(function (d) {
@@ -179,7 +248,7 @@ class Component extends React.Component {
       });
     });
     var dates = DATES.map(function (d) {
-      var on = s.date === d.id;
+      var on = selDate === d.id;
       return Object.assign({}, d, {
         aria: on ? "true" : "false",
         border: on ? BLUE : "#EFEDE8",
@@ -189,6 +258,21 @@ class Component extends React.Component {
         },
       });
     });
+
+    // Totals (same rules the server applies when it places the order)
+    var base = c.totals || { purchases: 0, rentals: 0, deposit: 0 };
+    var t = computeTotals({
+      purchases: base.purchases,
+      rentals: base.rentals,
+      deposit: base.deposit,
+      percentOff: c.promo ? c.promo.percentOff : 0,
+      pickup: pickup,
+      sameDay: !pickup && isToday,
+    });
+    var baseFee = t.deliveryFee;
+    var fee = t.deliveryFee + t.sameDayFee;
+    var total = t.total;
+
     var windows = WINDOWS.map(function (w) {
       var full = isToday && w.id === "w1";
       var on = s.win === w.id && !full;
@@ -199,22 +283,17 @@ class Component extends React.Component {
         bg: full ? "#F6F5F1" : on ? "#EAF3FA" : "#FFFFFF",
         fg: full ? "#5E6470" : "#111318",
         cursor: full ? "not-allowed" : "pointer",
-        note: full ? "Unavailable" : isToday ? "Same-day " + fmt(SAME_DAY_FEE) : "Free",
-        noteFg: full ? "#5E6470" : isToday ? "#B4431C" : GREEN,
+        note: full ? "Unavailable" : isToday ? "Same-day " + fmt(SAME_DAY_FEE) : baseFee ? fmt(baseFee) : "Free",
+        noteFg: full ? "#5E6470" : isToday ? "#B4431C" : baseFee ? "#3A3F4A" : GREEN,
         pick: function () {
           if (!full) self.setState({ win: w.id });
         },
       });
     });
+    var deliveryIso = s.day === "date" ? selDate : s.day === "today" ? todayIso : tomorrowIso;
     var dayLabel =
       s.day === "date"
-        ? (function () {
-            var d =
-              DATES.filter(function (x) {
-                return x.id === s.date;
-              })[0] || DATES[0];
-            return d.dow + " " + d.day;
-          })()
+        ? dow(selDate) + " " + dayMonth(selDate)
         : (
             DAYS.filter(function (x) {
               return x.id === s.day;
@@ -225,8 +304,6 @@ class Component extends React.Component {
         return x.id === s.win;
       })[0] || WINDOWS[1]
     ).label;
-    var fee = isToday ? SAME_DAY_FEE : 0;
-    var total = PURCHASES + RENTALS + fee;
 
     var payOpts = PAYS.map(function (p) {
       var on = s.pay === p.id;
@@ -242,11 +319,109 @@ class Component extends React.Component {
       });
     });
 
-    var lines = LINES.map(function (l) {
-      return Object.assign({}, l, { priceFmt: fmt(l.price), badgeBg: l.rent ? GREEN : BLUE, metaFg: l.rent ? GREEN : "#5E6470" });
+    var lines = cartLines.map(function (l) {
+      var p = l.product;
+      var rent = l.mode === "rent";
+      var meta = rent
+        ? "Rental · " + (l.rentStart && l.rentEnd ? dayMonth(l.rentStart) + " – " + dayMonth(l.rentEnd) : l.rentDays + " days")
+        : "Purchase · Qty " + l.qty + (l.qty > 1 ? " × " + fmt(l.unitPrice) : "");
+      return {
+        name: p.name,
+        kind: p.kind,
+        bg: p.bg,
+        qty: l.qty,
+        meta: meta,
+        priceFmt: fmt(l.lineTotal),
+        badgeBg: rent ? GREEN : BLUE,
+        metaFg: rent ? GREEN : "#5E6470",
+      };
     });
 
+    var rentals = rentalLines.map(function (l) {
+      var p = l.product;
+      return {
+        name: p.name,
+        kind: p.kind,
+        bg: p.bg,
+        href: "/product/" + p.id,
+        priceFmt: fmt(l.lineTotal) + " ",
+        daysLabel: "· " + l.rentDays + (l.rentDays === 1 ? " day" : " days"),
+        startLabel: l.rentStart ? longDate(l.rentStart) : "To be confirmed",
+        endLabel: l.rentEnd ? longDate(l.rentEnd) : "To be confirmed",
+        note:
+          "No need to bring it back — we collect it from the same address. Your " +
+          fmt(l.deposit) +
+          " deposit is refunded after the " +
+          p.name +
+          " is checked, within [N] days.",
+      };
+    });
+    var rentDays = rentalLines.reduce(function (a, l) {
+      return a + (l.rentDays || 0);
+    }, 0);
+    var termsTail =
+      rentals.length === 0
+        ? "."
+        : rentals.length === 1
+          ? ", and will have the " + rentals[0].name + " ready for collection on " + rentals[0].endLabel + "."
+          : ", and will have my rentals ready for collection on their return dates.";
+    var codText =
+      "Pay by Telebirr or card when your purchases arrive." +
+      (rentals.length === 0
+        ? ""
+        : rentals.length === 1
+          ? " The rental and its " + fmt(t.deposit) + " deposit are paid when the " + rentals[0].name + " is delivered."
+          : " The rentals and their " + fmt(t.deposit) + " deposit are paid when they are delivered.") +
+      " [PAY ON DELIVERY TERMS]";
+
     var terms = !!s.terms;
+    var ready = terms && !s.submitting;
+
+    var submit = function () {
+      var st = self.state;
+      var method = PAY_METHOD[st.pay] || "cod";
+      var payment = { method: method };
+      if (method === "telebirr") payment.phone = st.mpesa;
+      if (method === "card") {
+        var d = digits(st.cardNo, 19);
+        if (d.length >= 4) payment.cardLast4 = d.slice(-4); // never send the full card data
+      }
+      var payload = {
+        contact: { name: st.name, phone: st.phone, email: st.email },
+        fulfilment: pickup ? "pickup" : "delivery",
+        payment: payment,
+        acceptTerms: true,
+      };
+      if (!pickup) {
+        payload.deliveryDate = deliveryIso;
+        payload.deliveryWindow = winLabel;
+        if (isNew) payload.newAddress = { line1: st.newLine, area: st.newArea, city: st.newCity, phone: st.phone || undefined };
+        else payload.addressId = st.addr;
+      }
+
+      self.frozenCart = shop.cart;
+      self.setState({ submitting: true, errors: {}, orderError: "", termsError: "" });
+      placeOrder(payload).then(
+        function (res) {
+          navigate("/order-confirmed/" + res.orderId);
+        },
+        function (err) {
+          var slot = err.field ? FIELD_SLOTS[err.field] : null;
+          if (!slot && !err.field && /telebirr/i.test(err.message || "")) slot = "mpesa";
+          if (err.field === "acceptTerms") {
+            self.setState({ submitting: false, termsError: err.message });
+            return;
+          }
+          var o = { submitting: false };
+          if (slot) {
+            o.errors = {};
+            o.errors[slot] = err.message;
+          } else o.orderError = err.message;
+          self.setState(o);
+        },
+      );
+    };
+
     return {
       steps: steps,
       name: s.name || "",
@@ -255,6 +430,9 @@ class Component extends React.Component {
       onName: set("name"),
       onPhone: set("phone"),
       onEmail: set("email"),
+      errName: errors.name || "",
+      errPhone: errors.phone || "",
+      errEmail: errors.email || "",
       contactBadgeBg: badge(contactDone),
       contactStatus: contactDone ? "Complete" : "Required",
       contactStatusFg: statusFg(contactDone),
@@ -272,28 +450,44 @@ class Component extends React.Component {
       onNewLine: set("newLine"),
       onNewArea: set("newArea"),
       onNewCity: set("newCity"),
-      addrBadgeBg: badge(addrDone),
-      addrStatus: addrDone ? (isNew ? "New address" : "Saved address") : "Add street and city",
-      addrStatusFg: statusFg(addrDone),
+      errNewLine: errors.newLine || "",
+      errNewArea: errors.newArea || "",
+      errNewCity: errors.newCity || "",
+      addrBadgeBg: badge(pickup || addrDone),
+      isPickup: pickup,
+      pickupNote:
+        pickupAsked && !pickup
+          ? "Rentals are always delivered and collected by us, so this order will be delivered rather than picked up."
+          : "",
+      addrStatus: pickup ? "Pick up in store" : addrDone ? (isNew ? "New address" : "Saved address") : "Add street and city",
+      addrStatusFg: statusFg(pickup || addrDone),
       days: days,
       dates: dates,
       windows: windows,
       isPickDate: s.day === "date",
-      slotBadgeBg: badge(slotDone),
-      slotStatus: slotDone ? dayLabel + ", " + winLabel : "Choose a window",
-      slotStatusFg: statusFg(slotDone),
+      slotBadgeBg: badge(pickup || slotDone),
+      slotStatus: pickup ? "We will text you" : slotDone ? dayLabel + ", " + winLabel : "Choose a window",
+      slotStatusFg: statusFg(pickup || slotDone),
       slotNote: isToday
         ? "Same-day delivery for orders placed before [TIME]. A " + fmt(SAME_DAY_FEE) + " fee applies."
-        : "Free delivery: your purchases are over the ETB 100,000 free-delivery threshold.",
-      slotShort: dayLabel + " · " + winLabel,
+        : baseFee
+          ? "Delivery is " + fmt(baseFee) + ". Add " + fmt(t.freeDeliveryRemaining) + " more in purchases for free delivery."
+          : t.purchases > 0
+            ? "Free delivery: your purchases are over the " + fmt(FREE_DELIVERY_THRESHOLD) + " free-delivery threshold."
+            : "Free delivery: rentals are always delivered and collected free.",
+      slotShort: pickup ? "Pick up in store" : dayLabel + " · " + winLabel,
       feeFmt: fee ? fmt(fee) : "Free",
       feeColor: fee ? "#111318" : GREEN,
+      hasRentals: rentals.length > 0,
+      rentals: rentals,
+      rentChangeHref: rentals.length ? rentals[0].href : "/cart",
       payOpts: payOpts,
       payMpesa: s.pay === "mpesa",
       payCard: s.pay === "card",
       payCod: s.pay === "cod",
       mpesa: s.mpesa || "",
       onMpesa: set("mpesa"),
+      errMpesa: errors.mpesa || "",
       cardNo: s.cardNo || "",
       cardExp: s.cardExp || "",
       cardCvc: s.cardCvc || "",
@@ -307,6 +501,8 @@ class Component extends React.Component {
       onCvc: set("cardCvc", function (v) {
         return digits(v, 4);
       }),
+      errCardNo: errors.cardNo || "",
+      codText: codText,
       payBadgeBg: badge(payValid),
       payStatus: payValid ? "Ready" : "Required",
       payStatusFg: statusFg(payValid),
@@ -318,25 +514,43 @@ class Component extends React.Component {
       billAddr: s.billAddr || "",
       onBill: set("billAddr"),
       terms: terms,
+      termsTail: termsTail,
       toggleTerms: function () {
         self.setState({ terms: !self.state.terms, termsError: "" });
       },
       termsError: s.termsError || "",
       termsFg: s.termsError ? "#C42A1C" : "#111318",
       lines: lines,
+      purchasesFmt: fmt(t.purchases),
+      hasDiscount: t.discount > 0,
+      discountLabel: c.promo ? c.promo.code + " · " + c.promo.percentOff + "% off purchases" : "Discount",
+      discountFmt: "−" + fmt(t.discount),
+      rentLabel: "Rentals · " + rentDays + (rentDays === 1 ? " day" : " days"),
+      rentalsFmt: fmt(t.rentals),
+      depositFmt: fmt(t.deposit),
+      depositNote: "+ " + fmt(t.deposit) + " refundable deposit",
       totalFmt: fmt(total),
-      placeDisabled: terms ? "false" : "true",
-      placeClass: terms ? "btn-y" : "btn-off",
-      placeBg: terms ? GREEN : "#D5D8DD",
-      placeFg: terms ? "#FFFFFF" : "#3A3F4A",
-      placeCursor: terms ? "pointer" : "not-allowed",
-      placeHint: terms ? "You will not be charged until you confirm on your phone or card." : "Tick the terms box to place your order.",
-      placeHintFg: terms ? "#5E6470" : "#3A3F4A",
+      placeDisabled: ready ? "false" : "true",
+      placeClass: ready ? "btn-y" : "btn-off",
+      placeBg: ready ? GREEN : "#D5D8DD",
+      placeFg: ready ? "#FFFFFF" : "#3A3F4A",
+      placeCursor: s.submitting ? "progress" : ready ? "pointer" : "not-allowed",
+      placeHint: s.orderError
+        ? s.orderError
+        : s.submitting
+          ? "Placing your order…"
+          : terms
+            ? "You will not be charged until you confirm on your phone or card."
+            : "Tick the terms box to place your order.",
+      placeHintFg: s.orderError ? "#C42A1C" : terms ? "#5E6470" : "#3A3F4A",
       placeOrder: function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (self.state.submitting) return;
         if (!self.state.terms) {
-          if (e && e.preventDefault) e.preventDefault();
           self.setState({ termsError: "Please accept the terms to place your order." });
+          return;
         }
+        submit();
       },
     };
   }
@@ -614,6 +828,11 @@ export default class CheckoutScreen extends Component {
                         }}
                         suppressHydrationWarning
                       />
+                      {vals.errName ? (
+                        <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                          {vals.errName}
+                        </span>
+                      ) : null}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       <label htmlFor="f-phone" style={{ fontSize: "14px", fontWeight: "600" }}>
@@ -639,6 +858,11 @@ export default class CheckoutScreen extends Component {
                         }}
                         suppressHydrationWarning
                       />
+                      {vals.errPhone ? (
+                        <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                          {vals.errPhone}
+                        </span>
+                      ) : null}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       <label htmlFor="f-email" style={{ fontSize: "14px", fontWeight: "600" }}>
@@ -664,6 +888,11 @@ export default class CheckoutScreen extends Component {
                         }}
                         suppressHydrationWarning
                       />
+                      {vals.errEmail ? (
+                        <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                          {vals.errEmail}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </section>
@@ -715,19 +944,118 @@ export default class CheckoutScreen extends Component {
                       {vals.addrStatus}
                     </span>
                   </div>
-                  <div
-                    role="radiogroup"
-                    aria-labelledby="h-addr"
-                    style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "14px" }}
-                    data-cols="3"
-                  >
-                    {(vals.addresses || []).map((a, i0) => (
-                      <Fragment key={i0}>
+                  {vals.pickupNote ? <p style={{ margin: "0", fontSize: "13px", color: "#5E6470" }}>{vals.pickupNote}</p> : null}
+                  {vals.isPickup ? (
+                    <div
+                      style={{
+                        padding: "16px 20px",
+                        borderRadius: "20px",
+                        background: "#F6F5F1",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <span style={{ fontSize: "16px", fontWeight: "700" }}>Pick up in store</span>
+                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }}>
+                        {"We'll text you when your order is ready to collect from the Simbatech store, [ADDRESS]."}
+                      </span>
+                      <Link
+                        href="/checkout"
+                        style={{
+                          alignSelf: "flex-start",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#0D4F8B",
+                          textDecoration: "underline",
+                          textUnderlineOffset: "3px",
+                        }}
+                      >
+                        Deliver instead
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        role="radiogroup"
+                        aria-labelledby="h-addr"
+                        style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "14px" }}
+                        data-cols="3"
+                      >
+                        {(vals.addresses || []).map((a, i0) => (
+                          <Fragment key={i0}>
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={a.aria}
+                              onClick={a.pick}
+                              className="opt"
+                              style={{
+                                boxSizing: "border-box",
+                                minHeight: "124px",
+                                padding: "18px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                                textAlign: "left",
+                                border: `2px solid ${a.border}`,
+                                borderRadius: "20px",
+                                background: a.bg,
+                                color: "#111318",
+                                font: "inherit",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                                <span
+                                  style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "15px", fontWeight: "700" }}
+                                  suppressHydrationWarning
+                                >
+                                  <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="#0D4F8B"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+                                    <circle cx="12" cy="9.5" r="2.5" />
+                                  </svg>
+                                  {a.label}
+                                </span>
+                                <span
+                                  style={{
+                                    width: "20px",
+                                    height: "20px",
+                                    boxSizing: "border-box",
+                                    borderRadius: "999px",
+                                    border: `2px solid ${a.ring}`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: a.dot }} />
+                                </span>
+                              </span>
+                              <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }} suppressHydrationWarning>
+                                {a.line1}
+                              </span>
+                              <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                                {a.line2}
+                              </span>
+                            </button>
+                          </Fragment>
+                        ))}
                         <button
                           type="button"
                           role="radio"
-                          aria-checked={a.aria}
-                          onClick={a.pick}
+                          aria-checked={vals.newAria}
+                          onClick={vals.pickNew}
                           className="opt"
                           style={{
                             boxSizing: "border-box",
@@ -735,204 +1063,154 @@ export default class CheckoutScreen extends Component {
                             padding: "18px",
                             display: "flex",
                             flexDirection: "column",
-                            gap: "6px",
-                            textAlign: "left",
-                            border: `2px solid ${a.border}`,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            border: `2px dashed ${vals.newBorder}`,
                             borderRadius: "20px",
-                            background: a.bg,
-                            color: "#111318",
+                            background: vals.newBg,
+                            color: "#0D4F8B",
                             font: "inherit",
+                            fontSize: "15px",
+                            fontWeight: "700",
                             cursor: "pointer",
                           }}
                         >
-                          <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                            <span
-                              style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "15px", fontWeight: "700" }}
-                              suppressHydrationWarning
+                          <span
+                            style={{
+                              width: "36px",
+                              height: "36px",
+                              borderRadius: "999px",
+                              background: "#EAF3FA",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              aria-hidden="true"
                             >
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="#0D4F8B"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-                                <circle cx="12" cy="9.5" r="2.5" />
-                              </svg>
-                              {a.label}
-                            </span>
-                            <span
-                              style={{
-                                width: "20px",
-                                height: "20px",
-                                boxSizing: "border-box",
-                                borderRadius: "999px",
-                                border: `2px solid ${a.ring}`,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: a.dot }} />
-                            </span>
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
                           </span>
-                          <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }} suppressHydrationWarning>
-                            {a.line1}
-                          </span>
-                          <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
-                            {a.line2}
-                          </span>
+                          Add new address
                         </button>
-                      </Fragment>
-                    ))}
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={vals.newAria}
-                      onClick={vals.pickNew}
-                      className="opt"
-                      style={{
-                        boxSizing: "border-box",
-                        minHeight: "124px",
-                        padding: "18px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "8px",
-                        border: `2px dashed ${vals.newBorder}`,
-                        borderRadius: "20px",
-                        background: vals.newBg,
-                        color: "#0D4F8B",
-                        font: "inherit",
-                        fontSize: "15px",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "999px",
-                          background: "#EAF3FA",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                      </span>
-                      Add new address
-                    </button>
-                  </div>
-                  {vals.isNew ? (
-                    <>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                          gap: "16px",
-                          padding: "20px",
-                          borderRadius: "20px",
-                          background: "#F6F5F1",
-                        }}
-                        data-cols="3"
-                      >
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <label htmlFor="n-line" style={{ fontSize: "14px", fontWeight: "600" }}>
-                            Street, building, house no.
-                          </label>
-                          <input
-                            id="n-line"
-                            type="text"
-                            autoComplete="address-line1"
-                            value={vals.newLine}
-                            onChange={vals.onNewLine}
-                            placeholder="e.g. [BUILDING], [STREET]"
-                            style={{
-                              height: "52px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              border: "1.5px solid #E6E4DE",
-                              borderRadius: "12px",
-                              background: "#FFFFFF",
-                              font: "inherit",
-                              fontSize: "15px",
-                              color: "#111318",
-                            }}
-                            suppressHydrationWarning
-                          />
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <label htmlFor="n-area" style={{ fontSize: "14px", fontWeight: "600" }}>
-                            Area or estate
-                          </label>
-                          <input
-                            id="n-area"
-                            type="text"
-                            autoComplete="address-level3"
-                            value={vals.newArea}
-                            onChange={vals.onNewArea}
-                            placeholder="[AREA]"
-                            style={{
-                              height: "52px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              border: "1.5px solid #E6E4DE",
-                              borderRadius: "12px",
-                              background: "#FFFFFF",
-                              font: "inherit",
-                              fontSize: "15px",
-                              color: "#111318",
-                            }}
-                            suppressHydrationWarning
-                          />
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <label htmlFor="n-city" style={{ fontSize: "14px", fontWeight: "600" }}>
-                            Town or city
-                          </label>
-                          <input
-                            id="n-city"
-                            type="text"
-                            autoComplete="address-level2"
-                            value={vals.newCity}
-                            onChange={vals.onNewCity}
-                            placeholder="[CITY]"
-                            style={{
-                              height: "52px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              border: "1.5px solid #E6E4DE",
-                              borderRadius: "12px",
-                              background: "#FFFFFF",
-                              font: "inherit",
-                              fontSize: "15px",
-                              color: "#111318",
-                            }}
-                            suppressHydrationWarning
-                          />
-                        </div>
                       </div>
+                      {vals.isNew ? (
+                        <>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                              gap: "16px",
+                              padding: "20px",
+                              borderRadius: "20px",
+                              background: "#F6F5F1",
+                            }}
+                            data-cols="3"
+                          >
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <label htmlFor="n-line" style={{ fontSize: "14px", fontWeight: "600" }}>
+                                Street, building, house no.
+                              </label>
+                              <input
+                                id="n-line"
+                                type="text"
+                                autoComplete="address-line1"
+                                value={vals.newLine}
+                                onChange={vals.onNewLine}
+                                placeholder="e.g. [BUILDING], [STREET]"
+                                style={{
+                                  height: "52px",
+                                  boxSizing: "border-box",
+                                  padding: "0 16px",
+                                  border: "1.5px solid #E6E4DE",
+                                  borderRadius: "12px",
+                                  background: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "15px",
+                                  color: "#111318",
+                                }}
+                                suppressHydrationWarning
+                              />
+                              {vals.errNewLine ? (
+                                <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                                  {vals.errNewLine}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <label htmlFor="n-area" style={{ fontSize: "14px", fontWeight: "600" }}>
+                                Area or estate
+                              </label>
+                              <input
+                                id="n-area"
+                                type="text"
+                                autoComplete="address-level3"
+                                value={vals.newArea}
+                                onChange={vals.onNewArea}
+                                placeholder="[AREA]"
+                                style={{
+                                  height: "52px",
+                                  boxSizing: "border-box",
+                                  padding: "0 16px",
+                                  border: "1.5px solid #E6E4DE",
+                                  borderRadius: "12px",
+                                  background: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "15px",
+                                  color: "#111318",
+                                }}
+                                suppressHydrationWarning
+                              />
+                              {vals.errNewArea ? (
+                                <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                                  {vals.errNewArea}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <label htmlFor="n-city" style={{ fontSize: "14px", fontWeight: "600" }}>
+                                Town or city
+                              </label>
+                              <input
+                                id="n-city"
+                                type="text"
+                                autoComplete="address-level2"
+                                value={vals.newCity}
+                                onChange={vals.onNewCity}
+                                placeholder="[CITY]"
+                                style={{
+                                  height: "52px",
+                                  boxSizing: "border-box",
+                                  padding: "0 16px",
+                                  border: "1.5px solid #E6E4DE",
+                                  borderRadius: "12px",
+                                  background: "#FFFFFF",
+                                  font: "inherit",
+                                  fontSize: "15px",
+                                  color: "#111318",
+                                }}
+                                suppressHydrationWarning
+                              />
+                              {vals.errNewCity ? (
+                                <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                                  {vals.errNewCity}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
                     </>
-                  ) : null}
+                  )}
                 </section>
                 <section
                   aria-labelledby="h-slot"
@@ -993,323 +1271,369 @@ export default class CheckoutScreen extends Component {
                       {vals.slotStatus}
                     </span>
                   </div>
-                  <div
-                    role="radiogroup"
-                    aria-label="Delivery day"
-                    style={{
-                      display: "flex",
-                      gap: "6px",
-                      padding: "4px",
-                      background: "#F3F2EE",
-                      borderRadius: "14px",
-                      alignSelf: "flex-start",
-                    }}
-                  >
-                    {(vals.days || []).map((d, i0) => (
-                      <Fragment key={i0}>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={d.aria}
-                          onClick={d.pick}
-                          style={{
-                            height: "44px",
-                            padding: "0 20px",
-                            border: "none",
-                            borderRadius: "11px",
-                            background: d.bg,
-                            color: d.fg,
-                            font: "inherit",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            boxShadow: d.shadow,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                          suppressHydrationWarning
-                        >
-                          {d.label}
-                          <span style={{ fontSize: "12px", fontWeight: "500", color: d.subFg }} suppressHydrationWarning>
-                            {d.sub}
-                          </span>
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                  {vals.isPickDate ? (
+                  {vals.isPickup ? (
+                    <div
+                      style={{
+                        padding: "16px 20px",
+                        borderRadius: "20px",
+                        background: "#F6F5F1",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <span style={{ fontSize: "16px", fontWeight: "700" }}>Pick up in store</span>
+                      <span style={{ fontSize: "14px", lineHeight: "1.45", color: "#3A3F4A" }}>
+                        {"Ready in [N] hours · we will text you"}
+                      </span>
+                      <Link
+                        href="/checkout"
+                        style={{
+                          alignSelf: "flex-start",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#0D4F8B",
+                          textDecoration: "underline",
+                          textUnderlineOffset: "3px",
+                        }}
+                      >
+                        Deliver instead
+                      </Link>
+                    </div>
+                  ) : (
                     <>
                       <div
                         role="radiogroup"
-                        aria-label="Choose a date"
-                        style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "10px" }}
-                        data-cols="5"
+                        aria-label="Delivery day"
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          padding: "4px",
+                          background: "#F3F2EE",
+                          borderRadius: "14px",
+                          alignSelf: "flex-start",
+                        }}
                       >
-                        {(vals.dates || []).map((dt, i0) => (
+                        {(vals.days || []).map((d, i0) => (
                           <Fragment key={i0}>
                             <button
                               type="button"
                               role="radio"
-                              aria-checked={dt.aria}
-                              onClick={dt.pick}
-                              className="opt"
+                              aria-checked={d.aria}
+                              onClick={d.pick}
                               style={{
-                                height: "68px",
-                                border: `2px solid ${dt.border}`,
-                                borderRadius: "16px",
-                                background: dt.bg,
-                                color: "#111318",
+                                height: "44px",
+                                padding: "0 20px",
+                                border: "none",
+                                borderRadius: "11px",
+                                background: d.bg,
+                                color: d.fg,
                                 font: "inherit",
+                                fontSize: "14px",
+                                fontWeight: "600",
                                 cursor: "pointer",
+                                boxShadow: d.shadow,
                                 display: "flex",
-                                flexDirection: "column",
                                 alignItems: "center",
-                                justifyContent: "center",
-                                gap: "2px",
+                                gap: "8px",
                               }}
+                              suppressHydrationWarning
                             >
-                              <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
-                                {dt.dow}
-                              </span>
-                              <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
-                                {dt.day}
+                              {d.label}
+                              <span style={{ fontSize: "12px", fontWeight: "500", color: d.subFg }} suppressHydrationWarning>
+                                {d.sub}
                               </span>
                             </button>
                           </Fragment>
                         ))}
                       </div>
+                      {vals.isPickDate ? (
+                        <>
+                          <div
+                            role="radiogroup"
+                            aria-label="Choose a date"
+                            style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "10px" }}
+                            data-cols="5"
+                          >
+                            {(vals.dates || []).map((dt, i0) => (
+                              <Fragment key={i0}>
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={dt.aria}
+                                  onClick={dt.pick}
+                                  className="opt"
+                                  style={{
+                                    height: "68px",
+                                    border: `2px solid ${dt.border}`,
+                                    borderRadius: "16px",
+                                    background: dt.bg,
+                                    color: "#111318",
+                                    font: "inherit",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: "2px",
+                                  }}
+                                >
+                                  <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
+                                    {dt.dow}
+                                  </span>
+                                  <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
+                                    {dt.day}
+                                  </span>
+                                </button>
+                              </Fragment>
+                            ))}
+                          </div>
+                        </>
+                      ) : null}
+                      <div
+                        role="radiogroup"
+                        aria-label="Time window"
+                        style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "10px" }}
+                        data-cols="4"
+                      >
+                        {(vals.windows || []).map((w, i0) => (
+                          <Fragment key={i0}>
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={w.aria}
+                              aria-disabled={w.ariaDis}
+                              onClick={w.pick}
+                              className="opt"
+                              style={{
+                                height: "72px",
+                                border: `2px solid ${w.border}`,
+                                borderRadius: "16px",
+                                background: w.bg,
+                                color: w.fg,
+                                font: "inherit",
+                                cursor: w.cursor,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "3px",
+                              }}
+                            >
+                              <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                {w.label}
+                              </span>
+                              <span style={{ fontSize: "12px", fontWeight: "600", color: w.noteFg }} suppressHydrationWarning>
+                                {w.note}
+                              </span>
+                            </button>
+                          </Fragment>
+                        ))}
+                      </div>
+                      <p style={{ margin: "0", fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                        {vals.slotNote}
+                      </p>
                     </>
-                  ) : null}
-                  <div
-                    role="radiogroup"
-                    aria-label="Time window"
-                    style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "10px" }}
-                    data-cols="4"
-                  >
-                    {(vals.windows || []).map((w, i0) => (
-                      <Fragment key={i0}>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={w.aria}
-                          aria-disabled={w.ariaDis}
-                          onClick={w.pick}
-                          className="opt"
-                          style={{
-                            height: "72px",
-                            border: `2px solid ${w.border}`,
-                            borderRadius: "16px",
-                            background: w.bg,
-                            color: w.fg,
-                            font: "inherit",
-                            cursor: w.cursor,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: "3px",
-                          }}
-                        >
-                          <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
-                            {w.label}
-                          </span>
-                          <span style={{ fontSize: "12px", fontWeight: "600", color: w.noteFg }} suppressHydrationWarning>
-                            {w.note}
-                          </span>
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                  <p style={{ margin: "0", fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
-                    {vals.slotNote}
-                  </p>
+                  )}
                 </section>
-                <section
-                  aria-labelledby="h-rent"
-                  style={{ background: "#FFFFFF", border: "1px solid #EFEDE8", borderRadius: "28px", overflow: "hidden" }}
-                  data-sec="rental-schedule"
-                >
-                  {" "}
-                  <div
-                    style={{
-                      padding: "18px 28px",
-                      background: "#E4F2E6",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <span
+                {vals.hasRentals ? (
+                  <>
+                    <section
+                      aria-labelledby="h-rent"
+                      style={{ background: "#FFFFFF", border: "1px solid #EFEDE8", borderRadius: "28px", overflow: "hidden" }}
+                      data-sec="rental-schedule"
+                    >
+                      {" "}
+                      <div
                         style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "999px",
-                          background: "#2F7A3C",
-                          color: "#FFFFFF",
+                          padding: "18px 28px",
+                          background: "#E4F2E6",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "700",
+                          justifyContent: "space-between",
                         }}
                       >
-                        4
-                      </span>
-                      <h2
-                        id="h-rent"
-                        style={{
-                          margin: "0",
-                          fontFamily: "'Bricolage Grotesque', sans-serif",
-                          fontSize: "24px",
-                          fontWeight: "700",
-                          letterSpacing: "-0.03em",
-                          color: "#1F5E33",
-                        }}
-                      >
-                        Rental schedule
-                      </h2>
-                    </div>
-                    <Link
-                      href="/product"
-                      style={{
-                        height: "44px",
-                        display: "flex",
-                        alignItems: "center",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1F5E33",
-                        textDecoration: "underline",
-                        textUnderlineOffset: "3px",
-                      }}
-                    >
-                      Change dates
-                    </Link>
-                  </div>{" "}
-                  <div style={{ padding: "24px 28px", display: "flex", gap: "24px", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: "104px",
-                        height: "104px",
-                        flexShrink: "0",
-                        borderRadius: "22px",
-                        background: "#E0F1FF",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div style={{ zoom: "0.48", width: "200px", height: "200px" }}>
-                        <Render kind={"camera"} />
-                      </div>
-                    </div>
-                    <div style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "14px" }}>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "17px", fontWeight: "700" }}>Lumen Z6 Camera</span>
-                        <span style={{ fontSize: "15px", fontWeight: "700" }}>
-                          {"ETB 6,900 "}
-                          <span style={{ fontWeight: "500", color: "#5E6470" }}>· 3 days</span>
-                        </span>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" }} data-cols="2">
-                        <div
-                          style={{
-                            padding: "14px 16px",
-                            borderRadius: "16px",
-                            background: "#F6F5F1",
-                            display: "flex",
-                            gap: "12px",
-                            alignItems: "center",
-                          }}
-                        >
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                           <span
                             style={{
-                              width: "36px",
-                              height: "36px",
-                              flexShrink: "0",
-                              borderRadius: "10px",
-                              background: "#E4F2E6",
-                              color: "#2F7A3C",
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "999px",
+                              background: "#2F7A3C",
+                              color: "#FFFFFF",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
+                              fontSize: "14px",
+                              fontWeight: "700",
                             }}
                           >
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
-                              <circle cx="7" cy="17.5" r="1.8" />
-                              <circle cx="17" cy="17.5" r="1.8" />
-                            </svg>
+                            4
                           </span>
-                          <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>We deliver it</span>
-                            <span style={{ fontSize: "15px", fontWeight: "700" }}>Sat 3 Oct 2026</span>
-                            <span style={{ fontSize: "13px", color: "#3A3F4A" }}>9am – 12pm</span>
-                          </span>
+                          <h2
+                            id="h-rent"
+                            style={{
+                              margin: "0",
+                              fontFamily: "'Bricolage Grotesque', sans-serif",
+                              fontSize: "24px",
+                              fontWeight: "700",
+                              letterSpacing: "-0.03em",
+                              color: "#1F5E33",
+                            }}
+                          >
+                            Rental schedule
+                          </h2>
                         </div>
-                        <div
+                        <Link
+                          href={vals.rentChangeHref}
                           style={{
-                            padding: "14px 16px",
-                            borderRadius: "16px",
-                            background: "#F6F5F1",
+                            height: "44px",
                             display: "flex",
-                            gap: "12px",
                             alignItems: "center",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#1F5E33",
+                            textDecoration: "underline",
+                            textUnderlineOffset: "3px",
                           }}
                         >
-                          <span
-                            style={{
-                              width: "36px",
-                              height: "36px",
-                              flexShrink: "0",
-                              borderRadius: "10px",
-                              background: "#E4F2E6",
-                              color: "#2F7A3C",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
+                          Change dates
+                        </Link>
+                      </div>{" "}
+                      {(vals.rentals || []).map((r, i0) => (
+                        <Fragment key={i0}>
+                          <div style={{ padding: "24px 28px", display: "flex", gap: "24px", alignItems: "center" }}>
+                            <div
+                              style={{
+                                width: "104px",
+                                height: "104px",
+                                flexShrink: "0",
+                                borderRadius: "22px",
+                                background: r.bg,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
                             >
-                              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-                              <path d="M3 3v5h5" />
-                            </svg>
-                          </span>
-                          <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>We collect it</span>
-                            <span style={{ fontSize: "15px", fontWeight: "700" }}>Tue 6 Oct 2026</span>
-                            <span style={{ fontSize: "13px", color: "#3A3F4A" }}>3pm – 6pm</span>
-                          </span>
-                        </div>
-                      </div>
-                      <p style={{ margin: "0", fontSize: "13px", lineHeight: "1.5", color: "#3A3F4A" }}>
-                        No need to bring it back — we collect it from the same address. Your ETB [X] deposit is refunded after the camera is
-                        checked, within [N] days.
-                      </p>
-                    </div>
-                  </div>{" "}
-                </section>
+                              <div style={{ zoom: "0.48", width: "200px", height: "200px" }}>
+                                <Render kind={r.kind} />
+                              </div>
+                            </div>
+                            <div style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "14px" }}>
+                              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                                <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
+                                  {r.name}
+                                </span>
+                                <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                  {r.priceFmt}
+                                  <span style={{ fontWeight: "500", color: "#5E6470" }}>{r.daysLabel}</span>
+                                </span>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" }} data-cols="2">
+                                <div
+                                  style={{
+                                    padding: "14px 16px",
+                                    borderRadius: "16px",
+                                    background: "#F6F5F1",
+                                    display: "flex",
+                                    gap: "12px",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: "36px",
+                                      height: "36px",
+                                      flexShrink: "0",
+                                      borderRadius: "10px",
+                                      background: "#E4F2E6",
+                                      color: "#2F7A3C",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    <svg
+                                      width="18"
+                                      height="18"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.8"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      aria-hidden="true"
+                                    >
+                                      <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
+                                      <circle cx="7" cy="17.5" r="1.8" />
+                                      <circle cx="17" cy="17.5" r="1.8" />
+                                    </svg>
+                                  </span>
+                                  <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>We deliver it</span>
+                                    <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                      {r.startLabel}
+                                    </span>
+                                    <span style={{ fontSize: "13px", color: "#3A3F4A" }}>9am – 12pm</span>
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    padding: "14px 16px",
+                                    borderRadius: "16px",
+                                    background: "#F6F5F1",
+                                    display: "flex",
+                                    gap: "12px",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: "36px",
+                                      height: "36px",
+                                      flexShrink: "0",
+                                      borderRadius: "10px",
+                                      background: "#E4F2E6",
+                                      color: "#2F7A3C",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    <svg
+                                      width="18"
+                                      height="18"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.8"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      aria-hidden="true"
+                                    >
+                                      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                                      <path d="M3 3v5h5" />
+                                    </svg>
+                                  </span>
+                                  <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                    <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>We collect it</span>
+                                    <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
+                                      {r.endLabel}
+                                    </span>
+                                    <span style={{ fontSize: "13px", color: "#3A3F4A" }}>3pm – 6pm</span>
+                                  </span>
+                                </div>
+                              </div>
+                              <p style={{ margin: "0", fontSize: "13px", lineHeight: "1.5", color: "#3A3F4A" }} suppressHydrationWarning>
+                                {r.note}
+                              </p>
+                            </div>
+                          </div>{" "}
+                        </Fragment>
+                      ))}
+                    </section>
+                  </>
+                ) : null}
                 <section
                   aria-labelledby="h-pay"
                   style={{
@@ -1468,6 +1792,11 @@ export default class CheckoutScreen extends Component {
                             }}
                             suppressHydrationWarning
                           />
+                          {vals.errMpesa ? (
+                            <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                              {vals.errMpesa}
+                            </span>
+                          ) : null}
                         </div>
                         <div
                           style={{
@@ -1546,6 +1875,11 @@ export default class CheckoutScreen extends Component {
                             }}
                             suppressHydrationWarning
                           />
+                          {vals.errCardNo ? (
+                            <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                              {vals.errCardNo}
+                            </span>
+                          ) : null}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           <label htmlFor="p-exp" style={{ fontSize: "14px", fontWeight: "600" }}>
@@ -1641,8 +1975,7 @@ export default class CheckoutScreen extends Component {
                           color: "#3A3F4A",
                         }}
                       >
-                        Pay by Telebirr or card when your purchases arrive. The rental and its ETB [X] deposit are paid when the camera is
-                        delivered. [PAY ON DELIVERY TERMS]
+                        {vals.codText}
                       </div>
                     </>
                   ) : null}
@@ -1718,7 +2051,7 @@ export default class CheckoutScreen extends Component {
                       <a href="#" style={{ fontWeight: "600", color: "#2F7A3C", textDecoration: "underline" }}>
                         Rental terms
                       </a>
-                      , and will have the camera ready for collection on Tue 6 Oct 2026.
+                      {vals.termsTail}
                     </span>
                   </label>
                   <span
@@ -1846,11 +2179,25 @@ export default class CheckoutScreen extends Component {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <dt style={{ color: "#3A3F4A" }}>Purchases</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB 104,500</dd>
+                    <dd style={{ margin: "0", fontWeight: "600" }} suppressHydrationWarning>
+                      {vals.purchasesFmt}
+                    </dd>
                   </div>
+                  {vals.hasDiscount ? (
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <dt style={{ color: "#2F7A3C", fontWeight: "600" }}>{vals.discountLabel}</dt>
+                      <dd style={{ margin: "0", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
+                        {vals.discountFmt}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <dt style={{ color: "#3A3F4A" }}>Rentals · 3 days</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB 6,900</dd>
+                    <dt style={{ color: "#3A3F4A" }} suppressHydrationWarning>
+                      {vals.rentLabel}
+                    </dt>
+                    <dd style={{ margin: "0", fontWeight: "600" }} suppressHydrationWarning>
+                      {vals.rentalsFmt}
+                    </dd>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
                     <dt style={{ display: "flex", flexDirection: "column", color: "#3A3F4A" }}>
@@ -1865,7 +2212,9 @@ export default class CheckoutScreen extends Component {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <dt style={{ color: "#3A3F4A" }}>Refundable deposit</dt>
-                    <dd style={{ margin: "0", fontWeight: "600" }}>ETB [X]</dd>
+                    <dd style={{ margin: "0", fontWeight: "600" }} suppressHydrationWarning>
+                      {vals.depositFmt}
+                    </dd>
                   </div>
                 </dl>
                 <div
@@ -1879,7 +2228,9 @@ export default class CheckoutScreen extends Component {
                 >
                   <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                     <span style={{ fontSize: "16px", fontWeight: "700" }}>Total</span>
-                    <span style={{ fontSize: "12px", color: "#5E6470" }}>+ ETB [X] refundable deposit</span>
+                    <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                      {vals.depositNote}
+                    </span>
                   </span>
                   <span
                     style={{

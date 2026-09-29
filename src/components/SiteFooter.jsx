@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { subscribeNewsletter } from "@/lib/client/store";
 import "./site-footer.css";
 
 const COLUMNS = [
@@ -66,8 +68,41 @@ const SOCIAL = [
 
 const YEAR = 2026;
 
-function preventSubmit(e) {
-  e.preventDefault();
+function Newsletter() {
+  const [status, setStatus] = useState({ state: "idle", message: "" });
+  async function onSubmit(e) {
+    e.preventDefault();
+    const input = e.currentTarget.elements.namedItem("email");
+    setStatus({ state: "busy", message: "" });
+    try {
+      await subscribeNewsletter(input.value);
+      input.value = "";
+      setStatus({ state: "done", message: "You're subscribed. Watch your inbox for deals." });
+    } catch (err) {
+      setStatus({ state: "error", message: err.message });
+    }
+  }
+  return (
+    <>
+      <form onSubmit={onSubmit}>
+        <label htmlFor="sf-email" className="sr-only">
+          Email address
+        </label>
+        <input id="sf-email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
+        <button type="submit" disabled={status.state === "busy"}>
+          {status.state === "busy" ? "Subscribing…" : "Subscribe"}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </form>
+      {status.message && (
+        <small role="status" className={status.state === "error" ? "sf-news-error" : "sf-news-ok"}>
+          {status.message}
+        </small>
+      )}
+    </>
+  );
 }
 
 function scrollTop() {
@@ -157,18 +192,7 @@ export default function SiteFooter({ compact = false }) {
           <span className="sf-eyebrow">Newsletter</span>
           <h2>Get deals before everyone else</h2>
           <p>New arrivals, rentals and members-only offers. No spam, unsubscribe any time.</p>
-          <form onSubmit={preventSubmit}>
-            <label htmlFor="sf-email" className="sr-only">
-              Email address
-            </label>
-            <input id="sf-email" type="email" placeholder="you@example.com" autoComplete="email" />
-            <button type="submit">
-              Subscribe
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </button>
-          </form>
+          <Newsletter />
           <div className="sf-social">
             {SOCIAL.map((s) => (
               <a key={s.label} href="#" aria-label={`Simbatech on ${s.label}`}>

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { shopState, subscribe } from "@/lib/client/store";
 import "./mobile-tab-bar.css";
 
 const TABS = [
@@ -17,9 +19,16 @@ const HIDDEN_ON = ["/checkout", "/signin"];
 /* App-style bottom navigation, shown on phones only (see mobile-tab-bar.css). */
 export default function MobileTabBar() {
   const pathname = usePathname() || "/";
-  if (HIDDEN_ON.includes(pathname)) return null;
+  // cart badge: read after mount (the page fills the store) and follow later changes
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const read = () => setCount(shopState().cart?.count ?? 0);
+    read();
+    return subscribe(read);
+  }, [pathname]);
+  if (HIDDEN_ON.some((p) => pathname.startsWith(p))) return null;
 
-  const isActive = (href) => (href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/shop" && pathname === "/product"));
+  const isActive = (href) => (href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/shop" && pathname.startsWith("/product")));
 
   return (
     <nav className="mtb" aria-label="Primary">
@@ -27,9 +36,12 @@ export default function MobileTabBar() {
         const active = isActive(t.href);
         return (
           <Link key={t.href} href={t.href} className="mtb-item" aria-current={active ? "page" : undefined}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d={t.icon} />
-            </svg>
+            <span className="mtb-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d={t.icon} />
+              </svg>
+              {t.href === "/cart" && count > 0 && <b className="mtb-badge">{count}</b>}
+            </span>
             <span>{t.label}</span>
           </Link>
         );

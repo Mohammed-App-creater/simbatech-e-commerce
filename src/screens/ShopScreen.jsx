@@ -5,181 +5,12 @@ import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
 import MobileFilters from "@/components/MobileFilters";
+import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
+import { rentalBasePrice } from "@/lib/pricing";
 
 /* eslint-disable */
-// Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
+// Generated from the Simbatech design export. Markup mirrors the original 1:1; data comes from `initial`.
 
-var P = [
-  {
-    id: "p1",
-    name: "Lumen Z6 Camera",
-    cat: "Electronics",
-    dept: "Electronics",
-    brand: "Lumen",
-    kind: "camera",
-    bg: "#E0F1FF",
-    buy: 139000,
-    rent: 2500,
-    rating: "4.8",
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p2",
-    name: "Pulse ANC Headphones",
-    cat: "Electronics",
-    dept: "Electronics",
-    brand: "Pulse",
-    kind: "headphones",
-    bg: "#EEE8FF",
-    buy: 18900,
-    was: 23500,
-    rating: "4.9",
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p3",
-    name: "Aero X Pro",
-    cat: "Phones",
-    dept: "Electronics",
-    brand: "Aero",
-    kind: "phone",
-    bg: "#DDF5EA",
-    buy: 89500,
-    rating: "4.7",
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p4",
-    name: "Orbit Watch 2",
-    cat: "Wearables",
-    dept: "Electronics",
-    brand: "Orbit",
-    kind: "watch",
-    bg: "#FFEADB",
-    buy: 21500,
-    was: 26900,
-    rating: "4.6",
-    avail: true,
-    free: false,
-  },
-  {
-    id: "p5",
-    name: "Linen 3-Seater Sofa",
-    cat: "Home & Living",
-    dept: "Home & Living",
-    brand: "Casa Verde",
-    kind: "sofa",
-    bg: "#F3EEE6",
-    buy: 84900,
-    rating: "4.7",
-    avail: false,
-    free: false,
-  },
-  {
-    id: "p6",
-    name: "Barista Espresso Machine",
-    cat: "Kitchen",
-    dept: "Kitchen",
-    brand: "Casa Verde",
-    kind: "espresso",
-    bg: "#FFF4C7",
-    buy: 38500,
-    was: 45000,
-    rating: "4.6",
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p7",
-    name: "Street Runner Sneakers",
-    cat: "Fashion",
-    dept: "Fashion",
-    brand: "Aero",
-    kind: "sneaker",
-    bg: "#FFE4EF",
-    buy: 9800,
-    was: 12400,
-    rating: "4.5",
-    avail: true,
-    free: false,
-  },
-  {
-    id: "p8",
-    name: "Glow Skincare Duo",
-    cat: "Beauty",
-    dept: "Beauty",
-    brand: "Lumen",
-    kind: "skincare",
-    bg: "#D9F3F0",
-    buy: 4600,
-    rating: "4.8",
-    avail: true,
-    free: false,
-  },
-  {
-    id: "p9",
-    name: "Cordless Drill Kit",
-    cat: "Tools & DIY",
-    dept: "Tools & DIY",
-    brand: "Nova",
-    kind: "drill",
-    bg: "#FFF4C7",
-    buy: 14500,
-    rent: 800,
-    rating: "4.9",
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p10",
-    name: "Canopy Tent 3 × 3 m",
-    cat: "Events & Party",
-    dept: "Events & Party",
-    brand: "Nova",
-    kind: "tent",
-    bg: "#FFEADB",
-    buy: 45000,
-    rent: 3500,
-    rating: "4.7",
-    rentOnly: true,
-    avail: true,
-    free: true,
-  },
-  {
-    id: "p11",
-    name: "Trail Mountain Bike",
-    cat: "Sports",
-    dept: "Sports",
-    brand: "Orbit",
-    kind: "bike",
-    bg: "#DDF5EA",
-    buy: 65000,
-    rent: 1200,
-    rating: "4.5",
-    avail: false,
-    free: false,
-  },
-  {
-    id: "p12",
-    name: "Stack & Learn Blocks",
-    cat: "Baby & Kids",
-    dept: "Baby & Kids",
-    brand: "Nova",
-    kind: "blocks",
-    bg: "#E0F1FF",
-    buy: 2900,
-    was: 3600,
-    rating: "4.8",
-    avail: true,
-    free: false,
-  },
-];
-var DEPTS = ["Electronics", "Home & Living", "Kitchen", "Fashion", "Beauty", "Tools & DIY", "Events & Party", "Sports", "Baby & Kids"];
-var CHIPS = ["Electronics", "Home & Living", "Kitchen", "Fashion", "Beauty", "Tools & DIY", "Events & Party", "Sports"];
-var BRANDS = ["Nova", "Aero", "Pulse", "Lumen", "Casa Verde", "Orbit"];
 var RATINGS = [
   { v: 4.8, label: "4.8 & up" },
   { v: 4.7, label: "4.7 & up" },
@@ -196,8 +27,9 @@ var SHOP = [
   { id: "buy", label: "Buy" },
   { id: "rent", label: "Rent" },
 ];
-var RECENT = ["p3", "p5", "p10", "p2", "p8"];
-var PMAX = 150000;
+var PMAX = 150000; // the slider's top end ("ETB 150,000+"): a max at PMAX means no upper limit
+var PAGE_SIZE = 24;
+var PAGE_BUTTONS = [1, 2, 3, 4];
 function fmt(n) {
   return (
     "ETB " +
@@ -206,47 +38,164 @@ function fmt(n) {
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   );
 }
-function byId(id) {
-  return P.filter(function (p) {
-    return p.id === id;
-  })[0];
-}
 function anyOn(o) {
   return Object.keys(o || {}).some(function (k) {
     return o[k];
   });
 }
+function uniq(list) {
+  var seen = {};
+  return list.filter(function (x) {
+    if (!x || seen[x]) return false;
+    seen[x] = true;
+    return true;
+  });
+}
+function products(initial) {
+  return (initial && initial.products) || [];
+}
+// Department names from the catalogue's categories (fallback: the products themselves)
+function deptList(initial) {
+  var cats = (initial && initial.categories) || [];
+  var d = uniq(
+    cats.map(function (c) {
+      return c.dept;
+    }),
+  );
+  if (d.length) return d;
+  return uniq(
+    products(initial).map(function (p) {
+      return p.dept;
+    }),
+  );
+}
+function brandList(initial) {
+  var b = ((initial && initial.brands) || []).map(function (x) {
+    return x.name;
+  });
+  if (b.length) return b;
+  return uniq(
+    products(initial).map(function (p) {
+      return p.brand;
+    }),
+  );
+}
+function toSet(list) {
+  var o = {};
+  (list || []).forEach(function (k) {
+    o[k] = true;
+  });
+  return o;
+}
+// URL values may be names or slugs; normalise to the names the UI shows
+function normDepts(initial, list) {
+  var cats = (initial && initial.categories) || [];
+  return (list || []).map(function (v) {
+    var c = cats.filter(function (x) {
+      return x.slug === v;
+    })[0];
+    return c ? c.label : v;
+  });
+}
+function normBrands(initial, list) {
+  var brands = (initial && initial.brands) || [];
+  return (list || []).map(function (v) {
+    var b = brands.filter(function (x) {
+      return x.slug === v || x.name.toLowerCase() === String(v).toLowerCase();
+    })[0];
+    return b ? b.name : v;
+  });
+}
+function searchText(p) {
+  return [p.name, p.brand, p.cat, p.dept, p.kind, p.description].join(" ").toLowerCase();
+}
+function shopHref(q, mode, cats, brands) {
+  var params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (mode && mode !== "all") params.set("mode", mode);
+  Object.keys(cats || {}).forEach(function (k) {
+    if (cats[k]) params.append("dept", k);
+  });
+  Object.keys(brands || {}).forEach(function (k) {
+    if (brands[k]) params.append("brand", k);
+  });
+  var qs = params.toString();
+  return "/shop" + (qs ? "?" + qs : "");
+}
+function readRecent() {
+  try {
+    var v = JSON.parse(window.localStorage.getItem("st_recent") || "[]");
+    return Array.isArray(v)
+      ? v.filter(function (x) {
+          return typeof x === "string";
+        })
+      : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 class Component extends React.Component {
   constructor(props) {
     super(props);
+    var initial = props.initial || {};
+    var query = initial.query || {};
+    var shopMode = query.mode === "rent" || query.mode === "buy" ? query.mode : "all";
     this.state = {
-      mode: "buy",
-      shop: "all",
+      mode: shopMode === "rent" ? "rent" : "buy",
+      q: query.q || "",
+      shop: shopMode,
       sort: "featured",
-      cats: {},
-      brands: {},
+      cats: toSet(normDepts(initial, query.depts)),
+      brands: toSet(normBrands(initial, query.brands)),
       rating: 0,
       minP: 0,
       maxP: PMAX,
       period: "day",
       availNow: false,
       freeDel: false,
-      wished: { p5: true },
-      cartCount: 3,
-      cartTotal: 99700,
       cardMode: {},
+      busy: {}, // productId -> true while a cart call is pending
+      done: {}, // productId -> true for ~1.5s after a successful add
+      errs: {}, // productId -> error message
       page: 1,
-      loaded: false,
+      more: 0, // extra pages appended by "Load more"
+      recentIds: [],
     };
+    this.timers = [];
+  }
+  componentDidMount() {
+    this.unsubShop = connectShop(this);
+    var ids = readRecent();
+    if (ids.length) this.setState({ recentIds: ids });
+  }
+  componentWillUnmount() {
+    this.unsubShop && this.unsubShop();
+    this.timers.forEach(clearTimeout);
+  }
+  patchMap(key, id, value) {
+    var n = Object.assign({}, this.state[key]);
+    if (value === undefined) delete n[id];
+    else n[id] = value;
+    var o = {};
+    o[key] = n;
+    this.setState(o);
   }
   renderVals() {
     var self = this;
+    var initial = this.props.initial || {};
+    var P = products(initial);
+    var DEPTS = deptList(initial);
+    var CHIPS = DEPTS.slice(0, 8);
+    var BRANDS = brandList(initial);
+    var shopS = shopState(initial);
+    var hv = headerVals(shopS);
     var s = this.state || {};
-    var wished = s.wished || {};
     var cats = s.cats || {};
     var brands = s.brands || {};
     var shop = s.shop || "all";
+    var q = (s.q || "").trim();
+    var terms = q.toLowerCase().split(/\s+/).filter(Boolean);
     var per =
       PERIODS.filter(function (x) {
         return x.id === (s.period || "day");
@@ -258,31 +207,33 @@ class Component extends React.Component {
         self.setState(o);
       };
     };
-    var addToCart = function (amount) {
-      return function () {
-        self.setState({ cartCount: (self.state.cartCount || 0) + 1, cartTotal: (self.state.cartTotal || 0) + amount });
-      };
-    };
 
     var showRentFor = function (p) {
       var cm = (s.cardMode || {})[p.id];
       return !!p.rent && (!!p.rentOnly || (cm ? cm === "rent" : shop === "rent"));
     };
+    var rentFor = function (p) {
+      return rentalBasePrice(p.rent, p.plans || [], per.mult);
+    };
     var priceOf = function (p) {
-      return showRentFor(p) ? p.rent * per.mult : p.buy;
+      return showRentFor(p) ? rentFor(p) : p.buy;
     };
 
     // skip: 'cats' | 'brands' | null — used for facet counts
     var match = function (p, skip) {
+      if (terms.length) {
+        var t = searchText(p);
+        for (var i = 0; i < terms.length; i++) if (t.indexOf(terms[i]) < 0) return false;
+      }
       if (shop === "buy" && p.rentOnly) return false;
       if (shop === "rent" && !p.rent) return false;
-      if (skip !== "cats" && anyOn(cats) && !cats[p.dept]) return false;
+      if (skip !== "cats" && anyOn(cats) && !cats[p.dept] && !cats[p.cat]) return false;
       if (skip !== "brands" && anyOn(brands) && !brands[p.brand]) return false;
       if ((s.rating || 0) > 0 && parseFloat(p.rating) < s.rating) return false;
       if (s.availNow && !p.avail) return false;
       if (s.freeDel && !p.free) return false;
       var pr = priceOf(p);
-      if (pr < minP || pr > maxP) return false;
+      if (pr < minP || (maxP < PMAX && pr > maxP)) return false;
       return true;
     };
 
@@ -305,7 +256,10 @@ class Component extends React.Component {
 
     var card = function (p) {
       var showRent = showRentFor(p);
-      var w = !!wished[p.id];
+      var w = wishlist.has(shopS, p.id);
+      var busy = !!(s.busy || {})[p.id];
+      var done = !!(s.done || {})[p.id];
+      var err = (s.errs || {})[p.id];
       var setCard = function (m) {
         return function () {
           var n = Object.assign({}, self.state.cardMode);
@@ -315,9 +269,19 @@ class Component extends React.Component {
       };
       var tag = p.rent ? (p.rentOnly ? "For rent" : "Buy or rent") : p.was ? "Sale" : "Buy";
       var sub;
-      if (showRent)
-        sub = per.id !== "day" ? fmt(p.rent) + "/day × " + per.mult + " days" : p.rentOnly ? "Deposit ETB [X]" : "or buy " + fmt(p.buy);
-      else
+      if (showRent) {
+        var plan = (p.plans || []).some(function (pl) {
+          return pl.days === per.mult;
+        });
+        sub =
+          per.id !== "day"
+            ? plan
+              ? fmt(p.rent) + "/day · " + per.mult + "-day rate"
+              : fmt(p.rent) + "/day × " + per.mult + " days"
+            : p.rentOnly
+              ? "Deposit " + fmt(p.deposit || 0)
+              : "or buy " + fmt(p.buy);
+      } else
         sub = p.rent
           ? "or rent " + fmt(p.rent) + "/day"
           : p.was
@@ -326,8 +290,13 @@ class Component extends React.Component {
               ? "Free delivery"
               : p.avail
                 ? "In stock"
-                : "Ships in [N] days";
+                : p.shipsInDays
+                  ? "Ships in " + p.shipsInDays + " days"
+                  : "Out of stock";
+      if (err) sub = err;
+      var href = "/product/" + encodeURIComponent(p.id);
       return Object.assign({}, p, {
+        href: href,
         canToggle: !!p.rent && !p.rentOnly,
         pickBuy: setCard("buy"),
         pickRent: setCard("rent"),
@@ -343,23 +312,55 @@ class Component extends React.Component {
         tag: tag,
         tagBg: tag === "Sale" ? "#C42A1C" : p.rent ? "#2F7A3C" : "#FFFFFF",
         tagFg: tag === "Sale" || p.rent ? "#FFFFFF" : "#111318",
-        cta: showRent ? "Rent" : "Add",
+        cta: showRent ? "Rent" : busy ? "Adding…" : done ? "Added" : "Add",
         ctaBg: showRent ? "#2F7A3C" : "#0D4F8B",
         ctaClass: showRent ? "btn-y" : "btn-t",
         addLabel: (showRent ? "Rent " : "Add to cart: ") + p.name,
-        add: addToCart(priceOf(p)),
+        addDisabled: busy,
+        add: function () {
+          if (showRent) {
+            navigate(href);
+            return;
+          }
+          if (self.state.busy[p.id]) return;
+          self.patchMap("errs", p.id, undefined);
+          self.patchMap("busy", p.id, true);
+          cart
+            .add({ productId: p.id, mode: "buy", qty: 1 })
+            .then(function () {
+              self.patchMap("busy", p.id, undefined);
+              self.patchMap("done", p.id, true);
+              self.timers.push(
+                setTimeout(function () {
+                  self.patchMap("done", p.id, undefined);
+                }, 1500),
+              );
+            })
+            .catch(function (e) {
+              self.patchMap("busy", p.id, undefined);
+              self.patchMap("errs", p.id, (e && e.message) || "Could not add to cart");
+            });
+        },
         heartFill: w ? "#E0522B" : "none",
         heartStroke: w ? "#E0522B" : "#111318",
         wishAria: w ? "true" : "false",
         wishLabel: (w ? "Remove from" : "Save to") + " wishlist: " + p.name,
         toggleWish: function () {
-          var n = Object.assign({}, self.state.wished);
-          n[p.id] = !n[p.id];
-          self.setState({ wished: n });
+          self.patchMap("errs", p.id, undefined);
+          Promise.resolve(wishlist.toggle(p.id)).catch(function (e) {
+            self.patchMap("errs", p.id, (e && e.message) || "Could not update wishlist");
+          });
         },
       });
     };
-    var cards = res.map(card);
+
+    // pagination: PAGE_SIZE per page; "Load more" appends the following pages
+    var count = res.length;
+    var totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+    var page = Math.min(s.page || 1, totalPages);
+    var lastShown = Math.min(totalPages, page + (s.more || 0));
+    var cards = res.slice((page - 1) * PAGE_SIZE, lastShown * PAGE_SIZE).map(card);
+    var canLoad = lastShown < totalPages;
 
     // header search toggle
     var mode = s.mode || "buy";
@@ -381,7 +382,7 @@ class Component extends React.Component {
       return function () {
         var n = Object.assign({}, self.state[key]);
         n[val] = !n[val];
-        var o = { page: 1 };
+        var o = { page: 1, more: 0 };
         o[key] = n;
         self.setState(o);
       };
@@ -402,22 +403,35 @@ class Component extends React.Component {
           var sole = onlyCats.length === 1 && onlyCats[0] === c;
           var n = {};
           if (!sole) n[c] = true;
-          self.setState({ cats: n, page: 1 });
+          self.setState({ cats: n, page: 1, more: 0 });
         },
       };
     });
 
-    var catOpts = DEPTS.map(function (d) {
+    // departments, plus any selected category that is not a department (e.g. "Phones" from the nav)
+    var catKeys = DEPTS.concat(
+      onlyCats.filter(function (c) {
+        return DEPTS.indexOf(c) < 0;
+      }),
+    );
+    var catOpts = catKeys.map(function (d) {
       return {
         label: d,
         checked: !!cats[d],
         count: P.filter(function (p) {
-          return p.dept === d && match(p, "cats");
+          return (p.dept === d || p.cat === d) && match(p, "cats");
         }).length,
         toggle: toggleIn("cats", d),
       };
     });
-    var brandOpts = BRANDS.map(function (b) {
+    var selBrands = Object.keys(brands).filter(function (k) {
+      return brands[k];
+    });
+    var brandOpts = BRANDS.concat(
+      selBrands.filter(function (b) {
+        return BRANDS.indexOf(b) < 0;
+      }),
+    ).map(function (b) {
       return {
         label: b,
         checked: !!brands[b],
@@ -428,7 +442,7 @@ class Component extends React.Component {
       };
     });
     var ratingOpts = RATINGS.map(function (r) {
-      return { label: r.label, checked: (s.rating || 0) === r.v, pick: set({ rating: r.v, page: 1 }) };
+      return { label: r.label, checked: (s.rating || 0) === r.v, pick: set({ rating: r.v, page: 1, more: 0 }) };
     });
     var periods = PERIODS.map(function (x) {
       var on = x.id === per.id;
@@ -453,7 +467,7 @@ class Component extends React.Component {
         track: on ? "#2F7A3C" : "#C9C6BE",
         knob: on ? "21px" : "3px",
         toggle: function () {
-          var o = { page: 1 };
+          var o = { page: 1, more: 0 };
           o[x.key] = !self.state[x.key];
           self.setState(o);
         },
@@ -468,7 +482,7 @@ class Component extends React.Component {
         bg: on ? "#FFFFFF" : "transparent",
         fg: on ? fgOn : "#5E6470",
         shadow: on ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-        pick: set({ shop: t.id, cardMode: {}, page: 1 }),
+        pick: set({ shop: t.id, cardMode: {}, page: 1, more: 0 }),
       };
     });
 
@@ -479,35 +493,41 @@ class Component extends React.Component {
     var chip = function (label, tone, remove) {
       active.push({ label: label, bg: tone.bg, fg: tone.fg, remove: remove });
     };
+    if (q)
+      chip("“" + q + "”", BLUE, function () {
+        self.setState({ q: "" });
+        navigate(shopHref("", self.state.shop, self.state.cats, self.state.brands));
+      });
     if (shop !== "all") chip(shop === "rent" ? "For rent" : "To buy", shop === "rent" ? GREEN : BLUE, set({ shop: "all", cardMode: {} }));
     onlyCats.forEach(function (c) {
       chip(c, BLUE, toggleIn("cats", c));
     });
-    Object.keys(brands)
-      .filter(function (k) {
-        return brands[k];
-      })
-      .forEach(function (b) {
-        chip(b, BLUE, toggleIn("brands", b));
-      });
-    if (minP > 0 || maxP < PMAX) chip(fmt(minP) + " – " + fmt(maxP), BLUE, set({ minP: 0, maxP: PMAX }));
+    selBrands.forEach(function (b) {
+      chip(b, BLUE, toggleIn("brands", b));
+    });
+    if (minP > 0 || maxP < PMAX) chip(fmt(minP) + " – " + (maxP < PMAX ? fmt(maxP) : fmt(PMAX) + "+"), BLUE, set({ minP: 0, maxP: PMAX }));
     if (per.id !== "day") chip(per.word, GREEN, set({ period: "day" }));
     if ((s.rating || 0) > 0) chip("Rated " + s.rating + "+", BLUE, set({ rating: 0 }));
     if (s.availNow) chip("Available now", BLUE, set({ availNow: false }));
     if (s.freeDel) chip("Free delivery", BLUE, set({ freeDel: false }));
-    var clearAll = set({
-      shop: "all",
-      cats: {},
-      brands: {},
-      rating: 0,
-      minP: 0,
-      maxP: PMAX,
-      period: "day",
-      availNow: false,
-      freeDel: false,
-      cardMode: {},
-      page: 1,
-    });
+    var clearAll = function () {
+      self.setState({
+        q: "",
+        shop: "all",
+        cats: {},
+        brands: {},
+        rating: 0,
+        minP: 0,
+        maxP: PMAX,
+        period: "day",
+        availNow: false,
+        freeDel: false,
+        cardMode: {},
+        page: 1,
+        more: 0,
+      });
+      navigate("/shop");
+    };
 
     var clamp = function (v) {
       return Math.max(0, Math.min(PMAX, v));
@@ -519,8 +539,7 @@ class Component extends React.Component {
       return isNaN(v) ? 0 : v;
     };
 
-    var page = s.page || 1;
-    var pages = [1, 2, 3, 4].map(function (n) {
+    var pages = PAGE_BUTTONS.map(function (n) {
       var on = n === page;
       return {
         n: n,
@@ -528,37 +547,50 @@ class Component extends React.Component {
         bg: on ? "#0D4F8B" : "#FFFFFF",
         fg: on ? "#FFFFFF" : "#111318",
         border: on ? "#0D4F8B" : "#E6E4DE",
-        pick: set({ page: n }),
+        disabled: n > totalPages,
+        cursor: n > totalPages ? "default" : "pointer",
+        pick: set({ page: n, more: 0 }),
       };
     });
 
-    var recent = RECENT.map(function (id) {
-      var p = byId(id);
+    // recently viewed: localStorage ids once mounted; before that (and on the server) the first 5 products
+    var byId = function (id) {
+      return P.filter(function (p) {
+        return p.id === id;
+      })[0];
+    };
+    var recentProducts = (s.recentIds || []).map(byId).filter(Boolean).slice(0, 5);
+    if (!recentProducts.length) recentProducts = P.slice(0, 5);
+    var recent = recentProducts.map(function (p) {
       return {
+        href: "/product/" + encodeURIComponent(p.id),
         name: p.name,
         kind: p.kind,
         bg: p.bg,
-        price: p.rentOnly ? fmt(p.rent) + " / day" : fmt(p.buy),
+        price: p.rentOnly && p.rent ? fmt(p.rent) + " / day" : fmt(p.buy),
         priceFg: p.rentOnly ? "#2F7A3C" : "#0D4F8B",
       };
     });
 
-    var count = cards.length;
-    var wishCount = Object.keys(wished).filter(function (k) {
-      return wished[k];
-    }).length;
     var scope =
       onlyCats.length === 1
         ? "in " + onlyCats[0]
         : onlyCats.length > 1
           ? "in " + onlyCats.length + " categories"
-          : "across all departments";
+          : q
+            ? ""
+            : "across all departments";
+    if (q) scope = "for “" + q + "”" + (scope ? " " + scope : "");
 
     return {
       modes: modes,
       placeholder: mode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
+      searchQ: q,
+      onSearch: function (e) {
+        submitSearch(e, self.state.mode);
+      },
       chips: chips,
-      resultLabel: count + (count === 1 ? " product" : " products"),
+      resultLabel: count + (q ? (count === 1 ? " result" : " results") : count === 1 ? " product" : " products"),
       scopeLabel: scope + (shop === "rent" ? ", for rent" : shop === "buy" ? ", to buy" : ""),
       shopModes: shopModes,
       sort: sort,
@@ -577,10 +609,10 @@ class Component extends React.Component {
       minP: minP,
       maxP: maxP,
       onMin: function (e) {
-        self.setState({ minP: num(e), page: 1 });
+        self.setState({ minP: num(e), page: 1, more: 0 });
       },
       onMax: function (e) {
-        self.setState({ maxP: num(e), page: 1 });
+        self.setState({ maxP: num(e), page: 1, more: 0 });
       },
       trackLeft: (lo / PMAX) * 100 + "%",
       trackRight: (hi / PMAX) * 100 + "%",
@@ -589,21 +621,30 @@ class Component extends React.Component {
       rest: cards.slice(6),
       showPromo: count > 0,
       empty: count === 0,
-      count: count,
-      loadLabel: s.loaded ? "You have seen them all" : "Load more",
-      loadMore: set({ loaded: true }),
+      count: cards.length,
+      total: count,
+      loadLabel: canLoad ? "Load more" : "You have seen them all",
+      loadDisabled: !canLoad,
+      loadCursor: canLoad ? "pointer" : "default",
+      loadMore: function () {
+        if (canLoad) self.setState({ more: (self.state.more || 0) + 1 });
+      },
       pages: pages,
-      nextPage: set({ page: Math.min(4, page + 1) }),
+      nextDisabled: page >= totalPages,
+      nextCursor: page >= totalPages ? "default" : "pointer",
+      nextPage: set({ page: Math.min(totalPages, page + 1), more: 0 }),
       recent: recent,
-      wishCount: wishCount,
-      cartCount: s.cartCount || 0,
-      cartTotal: fmt(s.cartTotal || 0),
+      wishCount: hv.wishCount,
+      cartCount: hv.cartCount,
+      cartTotal: hv.cartTotal,
+      accountHref: hv.accountHref,
+      accountHello: hv.accountHello,
     };
   }
 }
 
-function preventSubmit(e) {
-  e.preventDefault();
+function deptHref(d) {
+  return "/shop?dept=" + encodeURIComponent(d);
 }
 
 const CSS =
@@ -791,7 +832,7 @@ export default class ShopScreen extends Component {
                 borderRadius: "16px",
                 background: "#FFFFFF",
               }}
-              onSubmit={preventSubmit}
+              onSubmit={vals.onSearch}
             >
               <div
                 role="group"
@@ -829,6 +870,7 @@ export default class ShopScreen extends Component {
               <input
                 id="c-search"
                 type="search"
+                defaultValue={vals.searchQ}
                 placeholder={vals.placeholder}
                 style={{
                   flexGrow: "1",
@@ -879,7 +921,7 @@ export default class ShopScreen extends Component {
                 Search
               </button>
             </form>
-            <Link href="/account" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
+            <Link href={vals.accountHref} style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
               <span
                 style={{
                   width: "44px",
@@ -906,7 +948,9 @@ export default class ShopScreen extends Component {
                 </svg>
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25" }}>
-                <span style={{ fontSize: "12px", color: "#5E6470" }}>Hello, sign in</span>
+                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                  {vals.accountHello}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: "600" }}>Account</span>
               </span>
             </Link>
@@ -1051,17 +1095,17 @@ export default class ShopScreen extends Component {
             }}
             data-sec="category-nav"
           >
-            <Link href="/shop">Electronics</Link>
-            <Link href="/shop">Phones</Link>
-            <Link href="/shop">{"Home & Living"}</Link>
-            <Link href="/shop">Kitchen</Link>
-            <Link href="/shop">Fashion</Link>
-            <Link href="/shop">Beauty</Link>
-            <Link href="/shop">{"Tools & DIY"}</Link>
-            <Link href="/shop">{"Baby & Kids"}</Link>
+            <Link href={deptHref("Electronics")}>Electronics</Link>
+            <Link href={deptHref("Phones")}>Phones</Link>
+            <Link href={deptHref("Home & Living")}>{"Home & Living"}</Link>
+            <Link href={deptHref("Kitchen")}>Kitchen</Link>
+            <Link href={deptHref("Fashion")}>Fashion</Link>
+            <Link href={deptHref("Beauty")}>Beauty</Link>
+            <Link href={deptHref("Tools & DIY")}>{"Tools & DIY"}</Link>
+            <Link href={deptHref("Baby & Kids")}>{"Baby & Kids"}</Link>
             <div style={{ flexGrow: "1" }} />
             <Link
-              href="/shop"
+              href="/shop?mode=rent"
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -1849,7 +1893,7 @@ export default class ShopScreen extends Component {
                       }}
                     >
                       <Link
-                        href="/product"
+                        href={p.href}
                         aria-label={p.name}
                         style={{
                           position: "relative",
@@ -1943,7 +1987,7 @@ export default class ShopScreen extends Component {
                           </span>
                         </div>
                         <Link
-                          href="/product"
+                          href={p.href}
                           style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                           suppressHydrationWarning
                         >
@@ -2031,6 +2075,7 @@ export default class ShopScreen extends Component {
                             type="button"
                             className={p.ctaClass}
                             onClick={p.add}
+                            disabled={p.addDisabled}
                             aria-label={p.addLabel}
                             style={{
                               height: "42px",
@@ -2057,7 +2102,7 @@ export default class ShopScreen extends Component {
                 {vals.showPromo ? (
                   <>
                     <Link
-                      href="/product"
+                      href="/shop?mode=rent"
                       className="lift"
                       style={{
                         gridColumn: "span 3",
@@ -2193,7 +2238,7 @@ export default class ShopScreen extends Component {
                       }}
                     >
                       <Link
-                        href="/product"
+                        href={p.href}
                         aria-label={p.name}
                         style={{
                           position: "relative",
@@ -2287,7 +2332,7 @@ export default class ShopScreen extends Component {
                           </span>
                         </div>
                         <Link
-                          href="/product"
+                          href={p.href}
                           style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                           suppressHydrationWarning
                         >
@@ -2375,6 +2420,7 @@ export default class ShopScreen extends Component {
                             type="button"
                             className={p.ctaClass}
                             onClick={p.add}
+                            disabled={p.addDisabled}
                             aria-label={p.addLabel}
                             style={{
                               height: "42px",
@@ -2465,11 +2511,12 @@ export default class ShopScreen extends Component {
                   <strong style={{ color: "#111318" }} suppressHydrationWarning>
                     {vals.count}
                   </strong>
-                  {" of [N] products"}
+                  {" of " + vals.total + " products"}
                 </span>
                 <button
                   type="button"
                   onClick={vals.loadMore}
+                  disabled={vals.loadDisabled}
                   style={{
                     height: "52px",
                     padding: "0 28px",
@@ -2480,7 +2527,7 @@ export default class ShopScreen extends Component {
                     fontSize: "15px",
                     fontWeight: "700",
                     color: "#0D4F8B",
-                    cursor: "pointer",
+                    cursor: vals.loadCursor,
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
@@ -2508,6 +2555,7 @@ export default class ShopScreen extends Component {
                       <button
                         type="button"
                         onClick={pg.pick}
+                        disabled={pg.disabled}
                         aria-label={`Page ${pg.n}`}
                         aria-current={pg.aria}
                         style={{
@@ -2520,7 +2568,7 @@ export default class ShopScreen extends Component {
                           font: "inherit",
                           fontSize: "14px",
                           fontWeight: "700",
-                          cursor: "pointer",
+                          cursor: pg.cursor,
                         }}
                         suppressHydrationWarning
                       >
@@ -2531,6 +2579,7 @@ export default class ShopScreen extends Component {
                   <button
                     type="button"
                     onClick={vals.nextPage}
+                    disabled={vals.nextDisabled}
                     aria-label="Next page"
                     style={{
                       width: "44px",
@@ -2542,7 +2591,7 @@ export default class ShopScreen extends Component {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      cursor: "pointer",
+                      cursor: vals.nextCursor,
                     }}
                   >
                     <svg
@@ -2617,7 +2666,7 @@ export default class ShopScreen extends Component {
               {(vals.recent || []).map((r, i0) => (
                 <Fragment key={i0}>
                   <Link
-                    href="/product"
+                    href={r.href}
                     className="lift"
                     style={{
                       height: "104px",

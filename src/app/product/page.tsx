@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
-import ProductScreen from "@/screens/ProductScreen";
+import { redirect } from "next/navigation";
+import { listProducts } from "@/lib/server/api";
 
-export const metadata: Metadata = { title: "Simbatech — Lumen Z6 Camera" };
-
-export default function Page() {
-  return <ProductScreen />;
+// /product without a slug (old links) goes to the first product.
+export default async function Page() {
+  const [first] = await listProducts();
+  redirect(first ? `/product/${first.id}` : "/shop");
 }

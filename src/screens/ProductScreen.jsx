@@ -4,26 +4,12 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
+import { rentalBasePrice, rentalLinePrice } from "@/lib/pricing";
 
 /* eslint-disable */
-// Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
+// Generated from the Simbatech design export. Markup mirrors the original; data comes from `initial`.
 
-var BUY_PRICE = 139000;
-var DURS = [
-  { id: "d1", days: 1, label: "1 day", price: 2500 },
-  { id: "d3", days: 3, label: "3 days", price: 6900 },
-  { id: "w1", days: 7, label: "1 week", price: 14000 },
-  { id: "w2", days: 14, label: "2 weeks", price: 25000 },
-];
-var ADDONS = [
-  { id: "battery", label: "Extra battery", perDay: 300, note: "Shoot all day without recharging" },
-  { id: "lens", label: "Spare lens", perDay: 900, note: "[LENS MODEL]" },
-  { id: "cover", label: "Damage cover", perDay: 200, note: "Lowers your excess to ETB [X]" },
-];
-var VARIANTS = [
-  { id: "body", label: "Body only", extra: 0 },
-  { id: "kit", label: "With kit lens", extra: 18000 },
-];
 var SHOTS = [
   { label: "Front", bg: "#E0F1FF", rot: "0deg", zoom: 2.2, tZoom: 0.5 },
   { label: "Angled left", bg: "#EEE8FF", rot: "-14deg", zoom: 2.1, tZoom: 0.5 },
@@ -36,6 +22,7 @@ var TABS = [
   { id: "terms", label: "Rental terms" },
   { id: "reviews", label: "Reviews ([N])" },
 ];
+// Camera spec sheet from the design; not modelled in the backend (other kinds get a generic table).
 var SPECS = [
   ["Type", "Mirrorless camera"],
   ["Video", "4K"],
@@ -63,30 +50,9 @@ var DIST = [
   { stars: 2, w: "12%" },
   { stars: 1, w: "6%" },
 ];
-var CAT = [
-  { id: "p1", name: "Lumen Z6 Camera", cat: "Electronics", kind: "camera", bg: "#E0F1FF", buy: 139000, rent: 2500, rating: "4.8" },
-  { id: "p2", name: "Pulse ANC Headphones", cat: "Electronics", kind: "headphones", bg: "#EEE8FF", buy: 18900, was: 23500, rating: "4.9" },
-  { id: "p3", name: "Aero X Pro", cat: "Phones", kind: "phone", bg: "#DDF5EA", buy: 89500, rating: "4.7" },
-  { id: "p9", name: "Cordless Drill Kit", cat: "Tools & DIY", kind: "drill", bg: "#FFF4C7", buy: 14500, rent: 800, rating: "4.9" },
-  {
-    id: "p10",
-    name: "Canopy Tent 3 × 3 m",
-    cat: "Events & Party",
-    kind: "tent",
-    bg: "#FFEADB",
-    buy: 45000,
-    rent: 3500,
-    rating: "4.7",
-    rentOnly: true,
-  },
-  { id: "p11", name: "Trail Mountain Bike", cat: "Sports", kind: "bike", bg: "#DDF5EA", buy: 65000, rent: 1200, rating: "4.5" },
-];
-var FBT = [
-  { id: "p1", tag: "This item" },
-  { id: "p10", tag: "Shade for outdoor shoots" },
-  { id: "p11", tag: "For the trip there" },
-];
-var RELATED = ["p10", "p2", "p3", "p9"];
+var DUR_LABELS = { 1: "1 day", 3: "3 days", 7: "1 week", 14: "2 weeks" };
+var LOW_STOCK = 5;
+var RECENT_KEY = "st_recent";
 var CUTOFF_HOUR = 16;
 var WDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -101,11 +67,6 @@ function fmt(n) {
 function pad(n) {
   return (n < 10 ? "0" : "") + n;
 }
-function byId(id) {
-  return CAT.filter(function (p) {
-    return p.id === id;
-  })[0];
-}
 function iso(d) {
   return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
 }
@@ -118,51 +79,116 @@ function parseIso(s) {
 function niceDate(d) {
   return WDAY[d.getDay()] + ", " + d.getDate() + " " + MON[d.getMonth()];
 }
+function durLabel(days) {
+  return DUR_LABELS[days] || days + (days === 1 ? " day" : " days");
+}
+function deptHref(dept) {
+  return "/shop?dept=" + encodeURIComponent(dept);
+}
+function errMsg(e) {
+  return (e && e.message) || "Something went wrong. Please try again.";
+}
+function defaultPlanDays(p) {
+  var plans = (p && p.plans) || [];
+  if (!plans.length) return 1;
+  var three = plans.filter(function (pl) {
+    return pl.days === 3;
+  })[0];
+  return (three || plans[0]).days;
+}
 
 class Component extends React.Component {
   constructor(props) {
     super(props);
-    var t = new Date();
-    var tomorrow = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+    var initial = props.initial || {};
+    var p = initial.product || {};
+    var fbt = {};
+    fbt[p.id] = true;
+    (initial.rentTogether || []).forEach(function (x) {
+      fbt[x.id] = true;
+    });
     this.state = {
-      mode: "rent",
-      dur: "d3",
-      start: iso(tomorrow),
-      addons: { battery: true },
-      variant: "body",
+      mode: p.rent ? "rent" : "buy",
+      dur: defaultPlanDays(p),
+      // Browser-only: the local calendar day is read in componentDidMount so server and client markup match.
+      today: null,
+      start: null,
+      addons: {},
       qty: 1,
       shot: 0,
-      wished: false,
       shared: false,
       tab: "overview",
       reviewPrompt: false,
       fulfil: "delivery",
-      fbt: { p1: true, p10: true, p11: true },
+      fbt: fbt,
       fbtAdded: false,
+      fbtBusy: false,
+      fbtErr: "",
       searchMode: "rent",
       cardMode: {},
-      cardWish: {},
-      cartCount: 3,
-      cartTotal: 99700,
-      now: Date.now(),
+      cardBusy: {},
+      cardAdded: {},
+      cardErr: {},
+      rentBusy: false,
+      rentErr: "",
+      buyBusy: false,
+      buyAdded: false,
+      buyErr: "",
+      now: null,
     };
   }
   componentDidMount() {
     var self = this;
+    this.unsubShop = connectShop(this);
+    var t = new Date();
+    var tomorrow = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+    this.setState({ now: Date.now(), today: iso(t), start: iso(tomorrow) });
     this.timer = setInterval(function () {
       self.setState({ now: Date.now() });
     }, 1000);
+    // Recently viewed: most recent first, no duplicates, max 8.
+    var p = (this.props.initial || {}).product;
+    if (p && p.id) {
+      try {
+        var prev = JSON.parse(window.localStorage.getItem(RECENT_KEY) || "[]");
+        if (!Array.isArray(prev)) prev = [];
+        var next = [p.id]
+          .concat(
+            prev.filter(function (id) {
+              return typeof id === "string" && id !== p.id;
+            }),
+          )
+          .slice(0, 8);
+        window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      } catch (e) {}
+    }
   }
   componentWillUnmount() {
+    this.unsubShop && this.unsubShop();
     clearInterval(this.timer);
     clearTimeout(this.shareTimer);
+    clearTimeout(this.buyTimer);
+    Object.keys(this.cardTimers || {}).forEach(
+      function (k) {
+        clearTimeout(this.cardTimers[k]);
+      }.bind(this),
+    );
+  }
+  tomorrowIso() {
+    var base = parseIso(this.state.today) || new Date();
+    return iso(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
   }
   renderVals() {
     var self = this;
     var s = this.state || {};
-    var addCart = function (amount, count) {
-      self.setState({ cartCount: (self.state.cartCount || 0) + (count || 1), cartTotal: (self.state.cartTotal || 0) + amount });
-    };
+    var initial = this.props.initial || {};
+    var P = initial.product;
+    var shop = shopState(initial);
+    var hv = headerVals(shop);
+    var name = P.name;
+    var canRent = !!P.rent;
+    var canBuy = !P.rentOnly;
+    var isCamera = P.kind === "camera";
 
     // Header search mode
     var searchMode = s.searchMode || "rent";
@@ -182,14 +208,17 @@ class Component extends React.Component {
       };
     });
 
-    // Gallery
+    // Gallery: the product's own art and colour lead; the other angles keep the design's tints.
+    var shots = SHOTS.map(function (x, i) {
+      return i === 0 ? Object.assign({}, x, { bg: P.bg || x.bg }) : x;
+    });
     var shotIdx = s.shot || 0;
     var goShot = function (i) {
       return function () {
-        self.setState({ shot: (i + SHOTS.length) % SHOTS.length });
+        self.setState({ shot: (i + shots.length) % shots.length });
       };
     };
-    var thumbs = SHOTS.map(function (x, i) {
+    var thumbs = shots.map(function (x, i) {
       var on = i === shotIdx;
       return {
         label: x.label + " view",
@@ -203,88 +232,90 @@ class Component extends React.Component {
     });
 
     // Mode
-    var mode = s.mode || "rent";
+    var mode = s.mode === "rent" && canRent ? "rent" : canBuy ? "buy" : "rent";
     var isRent = mode === "rent";
 
     // Rent
-    var dur =
-      DURS.filter(function (d) {
-        return d.id === s.dur;
-      })[0] || DURS[1];
-    var durs = DURS.map(function (d) {
-      var on = d.id === dur.id;
-      var full = d.days * DURS[0].price;
-      var pct = Math.round((1 - d.price / full) * 100);
+    var plans = P.plans || [];
+    var rate = P.rent || 0;
+    var durDays = s.dur || 1;
+    var durs = plans.map(function (d) {
+      var on = d.days === durDays;
+      var full = d.days * rate;
+      var pct = full > 0 ? Math.round((1 - d.price / full) * 100) : 0;
       return {
-        label: d.label,
+        label: durLabel(d.days),
         priceFmt: fmt(d.price),
         save: pct > 0 ? "Save " + pct + "%" : "",
         aria: on ? "true" : "false",
         border: on ? "#2F7A3C" : "#E6E4DE",
         bg: on ? "#E4F2E6" : "#FFFFFF",
         pick: function () {
-          self.setState({ dur: d.id });
+          self.setState({ dur: d.days, rentErr: "" });
         },
       };
     });
     var picked = s.addons || {};
-    var addonTotal = 0,
-      addonCount = 0;
-    var addons = ADDONS.map(function (a) {
-      var on = !!picked[a.id];
-      if (on) {
-        addonTotal += a.perDay * dur.days;
-        addonCount += 1;
-      }
+    var addOnDefs = P.addOns || [];
+    var selectedKeys = addOnDefs
+      .filter(function (a) {
+        return !!picked[a.key];
+      })
+      .map(function (a) {
+        return a.key;
+      });
+    var basePrice = canRent ? rentalBasePrice(rate, plans, durDays) : 0;
+    var rentTotal = canRent ? rentalLinePrice(rate, plans, addOnDefs, selectedKeys, durDays) : 0;
+    var addonTotal = rentTotal - basePrice;
+    var addons = addOnDefs.map(function (a) {
+      var on = !!picked[a.key];
       return {
         label: a.label,
-        note: a.note,
+        note: a.note || "",
         priceFmt: fmt(a.perDay),
         checked: on,
         border: on ? "#2F7A3C" : "#E6E4DE",
         bg: on ? "#F4FAF5" : "#FFFFFF",
         toggle: function () {
           var n = Object.assign({}, self.state.addons);
-          n[a.id] = !n[a.id];
+          n[a.key] = !n[a.key];
           self.setState({ addons: n });
         },
       };
     });
-    var rentTotal = dur.price + addonTotal;
-    var today = new Date(s.now || Date.now());
-    var startD = parseIso(s.start) || new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    var returnD = new Date(startD.getFullYear(), startD.getMonth(), startD.getDate() + dur.days);
+    var startD = parseIso(s.start);
+    var returnD = startD ? new Date(startD.getFullYear(), startD.getMonth(), startD.getDate() + durDays) : null;
+    var minD = parseIso(s.today);
+    var minIso = minD ? iso(new Date(minD.getFullYear(), minD.getMonth(), minD.getDate() + 1)) : "";
 
     // Buy
-    var variant =
-      VARIANTS.filter(function (v) {
-        return v.id === s.variant;
-      })[0] || VARIANTS[0];
-    var unit = BUY_PRICE + variant.extra;
+    var unit = P.buy;
     var qty = s.qty || 1;
-    var variants = VARIANTS.map(function (v) {
-      var on = v.id === variant.id;
-      return {
-        label: v.label,
-        sub: v.extra ? "+" + fmt(v.extra) : fmt(BUY_PRICE),
-        aria: on ? "true" : "false",
-        border: on ? "#1679BE" : "#E6E4DE",
-        bg: on ? "#EAF3FA" : "#FFFFFF",
-        pick: function () {
-          self.setState({ variant: v.id });
-        },
-      };
-    });
 
-    // Delivery countdown
-    var nowD = new Date(s.now || Date.now());
-    var cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), CUTOFF_HOUR, 0, 0);
-    var cdDay = "today";
-    if (nowD >= cutoff) {
-      cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1, CUTOFF_HOUR, 0, 0);
-      cdDay = "tomorrow";
+    // Stock line
+    var stock = P.avail
+      ? P.left <= LOW_STOCK
+        ? "Only " + P.left + " left"
+        : "In stock"
+      : P.shipsInDays
+        ? "Ships in " + P.shipsInDays + (P.shipsInDays === 1 ? " day" : " days")
+        : "Out of stock";
+
+    // Delivery countdown (clock is read after mount only)
+    var cdH = "",
+      cdM = "",
+      cdDay = "today";
+    if (s.now) {
+      var nowD = new Date(s.now);
+      var cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), CUTOFF_HOUR, 0, 0);
+      if (nowD >= cutoff) {
+        cutoff = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate() + 1, CUTOFF_HOUR, 0, 0);
+        cdDay = "tomorrow";
+      }
+      var leftMin = Math.max(0, Math.floor((cutoff - nowD) / 60000));
+      cdH = String(Math.floor(leftMin / 60));
+      cdM = pad(leftMin % 60);
     }
-    var leftMin = Math.max(0, Math.floor((cutoff - nowD) / 60000));
     var fulfilSel = s.fulfil || "delivery";
     var fulfil = [
       { id: "delivery", label: "Home delivery", sub: "Free over ETB [X]" },
@@ -303,12 +334,16 @@ class Component extends React.Component {
       };
     });
 
-    // Tabs
+    // Tabs (rental terms only for rentable items)
+    var tabDefs = TABS.filter(function (t) {
+      return t.id !== "terms" || canRent;
+    });
     var tab = s.tab || "overview";
-    var tabs = TABS.map(function (t) {
+    if (tab === "terms" && !canRent) tab = "overview";
+    var tabs = tabDefs.map(function (t) {
       var on = t.id === tab;
       return {
-        label: t.label,
+        label: t.id === "reviews" ? "Reviews (" + P.reviews + ")" : t.label,
         tabId: "tab-" + t.id,
         panelId: "panel-" + t.id,
         aria: on ? "true" : "false",
@@ -320,45 +355,70 @@ class Component extends React.Component {
         },
       };
     });
-    var inBox = ["Lumen Z6 camera body", "Rechargeable battery", "Charger and cable", "Shoulder strap", "Body cap"];
-    if (variant.id === "kit") inBox = inBox.concat(["Kit lens with caps"]);
-    inBox = inBox.concat(["[OTHER ITEMS]"]);
+    var inBox = isCamera
+      ? [name + " body", "Rechargeable battery", "Charger and cable", "Shoulder strap", "Body cap", "[OTHER ITEMS]"]
+      : [name, "[OTHER ITEMS]"];
+    var specs = isCamera
+      ? SPECS
+      : [
+          ["Category", P.cat],
+          ["Brand", P.brand],
+          ["Warranty", "[TERM]"],
+        ];
+    var overviewNote = isCamera
+      ? "Renting? Your " +
+        name +
+        " arrives with a charged battery and a formatted memory card slot, ready to shoot. Buying? It ships sealed, with the manufacturer's warranty."
+      : canRent && canBuy
+        ? "Renting? Your " + name + " arrives checked, cleaned and ready to use. Buying? It ships sealed, with the manufacturer's warranty."
+        : canRent
+          ? "Your " + name + " arrives checked, cleaned and ready to use, and we collect it on the return date."
+          : "Your " + name + " ships sealed, with the manufacturer's warranty.";
+    var terms = TERMS.map(function (t, i) {
+      var body = t.title === "Deposit" ? t.body.replace("ETB [X]", fmt(P.deposit || 0)) : t.body;
+      return { n: "0" + (i + 1), title: t.title, body: body };
+    });
 
-    // Frequently rented together
+    // Frequently rented together: this item + other rentables, each as a 1-day rental from tomorrow.
+    var together = canRent ? [P].concat(initial.rentTogether || []) : [];
     var fbtSel = s.fbt || {};
     var fbtTotal = 0,
-      fbtCount = 0;
-    var fbt = FBT.map(function (f, i) {
-      var p = byId(f.id);
-      var on = !!fbtSel[f.id];
+      fbtCount = 0,
+      fbtDeposit = 0;
+    var fbtChosen = [];
+    var fbt = together.map(function (p, i) {
+      var on = !!fbtSel[p.id];
       if (on) {
         fbtTotal += p.rent;
+        fbtDeposit += p.deposit || 0;
         fbtCount += 1;
+        fbtChosen.push(p.id);
       }
       return {
         plus: i > 0,
         name: p.name,
         kind: p.kind,
         bg: p.bg,
-        tag: f.tag,
+        tag: i === 0 ? "This item" : p.cat,
         priceFmt: fmt(p.rent),
         checked: on,
         border: on ? "#2F7A3C" : "transparent",
         toggle: function () {
           var n = Object.assign({}, self.state.fbt);
-          n[f.id] = !n[f.id];
-          self.setState({ fbt: n, fbtAdded: false });
+          n[p.id] = !n[p.id];
+          self.setState({ fbt: n, fbtAdded: false, fbtErr: "" });
         },
       };
     });
 
     // Related (Top-products card style)
-    var cardWish = s.cardWish || {};
-    var related = RELATED.map(function (id) {
-      var p = byId(id);
+    var related = (initial.related || []).map(function (p) {
       var cm = (s.cardMode || {})[p.id];
       var showRent = !!p.rent && (p.rentOnly || cm === "rent");
-      var w = !!cardWish[p.id];
+      var w = wishlist.has(shop, p.id);
+      var busy = !!(s.cardBusy || {})[p.id];
+      var added = !!(s.cardAdded || {})[p.id];
+      var err = (s.cardErr || {})[p.id] || "";
       var setCard = function (m) {
         return function () {
           var n = Object.assign({}, self.state.cardMode);
@@ -368,6 +428,7 @@ class Component extends React.Component {
       };
       var tag = p.rent ? (p.rentOnly ? "For rent" : "Buy or rent") : p.was ? "Sale" : "Buy";
       return Object.assign({}, p, {
+        href: "/product/" + p.id,
         canToggle: !!p.rent && !p.rentOnly,
         pickBuy: setCard("buy"),
         pickRent: setCard("rent"),
@@ -379,48 +440,71 @@ class Component extends React.Component {
         rentFg: showRent ? "#FFFFFF" : "#5E6470",
         main: showRent ? fmt(p.rent) : fmt(p.buy),
         unit: showRent ? "/ day" : "",
-        sub: p.rent
-          ? showRent
-            ? "or buy " + fmt(p.buy)
-            : "or rent " + fmt(p.rent) + "/day"
-          : p.was
-            ? "was " + fmt(p.was)
-            : "Free delivery",
+        sub: err
+          ? err
+          : p.rent
+            ? showRent
+              ? p.rentOnly
+                ? "Refundable deposit " + fmt(p.deposit || 0)
+                : "or buy " + fmt(p.buy)
+              : "or rent " + fmt(p.rent) + "/day"
+            : p.was
+              ? "was " + fmt(p.was)
+              : "Free delivery",
         tag: tag,
         tagBg: tag === "Sale" ? "#C42A1C" : p.rent ? "#2F7A3C" : "#FFFFFF",
         tagFg: tag === "Sale" || p.rent ? "#FFFFFF" : "#111318",
-        cta: showRent ? "Rent" : "Add",
+        cta: showRent ? "Rent" : added ? "Added" : "Add",
         addLabel: (showRent ? "Rent " : "Add to cart: ") + p.name,
+        busy: busy,
         add: function () {
-          addCart(showRent ? p.rent : p.buy, 1);
+          // "Rent" on a card opens the product page to pick dates; "Add" buys one.
+          if (showRent) return navigate("/product/" + p.id);
+          self.addCard(p.id);
         },
         heartFill: w ? "#E0522B" : "none",
         heartStroke: w ? "#E0522B" : "#111318",
         wishAria: w ? "true" : "false",
         wishLabel: (w ? "Remove from" : "Save to") + " wishlist: " + p.name,
         toggleWish: function () {
-          var n = Object.assign({}, self.state.cardWish);
-          n[p.id] = !n[p.id];
-          self.setState({ cardWish: n });
+          wishlist.toggle(p.id).catch(function () {});
         },
       });
     });
 
-    var wishCount =
-      (s.wished ? 1 : 0) +
-      Object.keys(cardWish).filter(function (k) {
-        return cardWish[k];
-      }).length;
+    var wished = wishlist.has(shop, P.id);
+    var crumbs = P.cat && P.cat !== P.dept;
 
     return {
       modes: modes,
       placeholder:
         searchMode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
-      wishCount: wishCount,
-      cartCount: s.cartCount || 0,
-      cartTotal: fmt(s.cartTotal || 0),
+      onSearch: function (e) {
+        submitSearch(e, searchMode);
+      },
+      wishCount: hv.wishCount,
+      cartCount: hv.cartCount,
+      cartTotal: hv.cartTotal,
+      accountHref: hv.accountHref,
+      accountHello: hv.accountHello,
 
-      shot: SHOTS[shotIdx],
+      name: name,
+      kind: P.kind,
+      brand: (P.brand || "").toUpperCase(),
+      brandHref: "/shop?brand=" + encodeURIComponent(P.brand || ""),
+      dept: P.dept,
+      deptHref: deptHref(P.dept),
+      cat: P.cat,
+      showCat: crumbs,
+      description: P.description,
+      rating: P.rating,
+      ratingLabel: "Rated " + P.rating + " out of 5",
+      reviewsLabel: P.reviews + (P.reviews === 1 ? " review" : " reviews"),
+      stock: stock,
+      badge: P.rentOnly ? "For rent" : canRent ? "Buy or rent" : "Buy",
+      shortName: name,
+
+      shot: shots[shotIdx],
       shotNo: "0" + (shotIdx + 1),
       thumbs: thumbs,
       prevShot: goShot(shotIdx - 1),
@@ -437,17 +521,23 @@ class Component extends React.Component {
         }, 2200);
       },
       toggleWish: function () {
-        self.setState({ wished: !self.state.wished });
+        wishlist.toggle(P.id).catch(function () {});
       },
-      wishLabel: s.wished ? "Remove Lumen Z6 Camera from wishlist" : "Save Lumen Z6 Camera to wishlist",
-      wishAria: s.wished ? "true" : "false",
-      heartFill: s.wished ? "#E0522B" : "none",
-      heartStroke: s.wished ? "#E0522B" : "#111318",
+      wishLabel: wished ? "Remove " + name + " from wishlist" : "Save " + name + " to wishlist",
+      wishAria: wished ? "true" : "false",
+      heartFill: wished ? "#E0522B" : "none",
+      heartStroke: wished ? "#E0522B" : "#111318",
 
       openReviews: function () {
         self.setState({ tab: "reviews" });
       },
 
+      canRent: canRent,
+      canBuy: canBuy,
+      segCols: canRent && canBuy ? "repeat(2, minmax(0, 1fr))" : "repeat(1, minmax(0, 1fr))",
+      segLabel: "Buy or rent " + name,
+      buyPriceFmt: fmt(P.buy),
+      rentFromFmt: "from " + fmt(rate) + " / day",
       isRent: isRent,
       isBuy: !isRent,
       pickBuy: function () {
@@ -468,25 +558,39 @@ class Component extends React.Component {
       rentShadow: isRent ? "0 6px 16px -8px rgba(47,122,60,0.6)" : "none",
 
       durs: durs,
-      durLabel: dur.label,
-      startIso: iso(startD),
-      minIso: iso(today),
+      durLabel: durLabel(durDays),
+      startIso: s.start || "",
+      minIso: minIso,
       onStart: function (e) {
         var v = e && e.target ? e.target.value : "";
-        if (parseIso(v)) self.setState({ start: v });
+        if (parseIso(v) && (!minIso || v >= minIso)) self.setState({ start: v, rentErr: "" });
       },
-      returnFmt: niceDate(returnD),
+      returnFmt: returnD ? niceDate(returnD) : "",
+      hasAddons: addons.length > 0,
       addons: addons,
-      addonCount: addonCount,
-      rentalFmt: fmt(dur.price),
+      addonCount: selectedKeys.length,
+      rentalFmt: fmt(basePrice),
       addonFmt: fmt(addonTotal),
+      depositFmt: fmt(P.deposit || 0),
       rentTotalFmt: fmt(rentTotal),
-      bookRental: function () {
-        addCart(rentTotal, 1);
+      rentBusy: !!s.rentBusy,
+      rentErr: s.rentErr || "",
+      bookRental: function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (self.state.rentBusy) return;
+        var start = self.state.start || self.tomorrowIso();
+        self.setState({ rentBusy: true, rentErr: "" });
+        cart
+          .add({ productId: P.id, mode: "rent", rentStart: start, rentDays: durDays, addOns: selectedKeys })
+          .then(function () {
+            navigate("/cart");
+          })
+          .catch(function (err) {
+            self.setState({ rentBusy: false, rentErr: errMsg(err) });
+          });
       },
 
       unitFmt: fmt(unit),
-      variants: variants,
       qty: qty,
       decQty: function () {
         self.setState({ qty: Math.max(1, (self.state.qty || 1) - 1) });
@@ -495,12 +599,20 @@ class Component extends React.Component {
         self.setState({ qty: Math.min(10, (self.state.qty || 1) + 1) });
       },
       subtotalFmt: fmt(unit * qty),
-      addBuy: function () {
-        addCart(unit * qty, qty);
+      buyBusy: !!s.buyBusy,
+      buyErr: s.buyErr || "",
+      addBuyLabel: s.buyAdded ? "Added" : "Add to cart",
+      addBuy: function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        self.buy(qty, false);
+      },
+      buyNow: function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        self.buy(qty, true);
       },
 
-      cdH: String(Math.floor(leftMin / 60)),
-      cdM: pad(leftMin % 60),
+      cdH: cdH,
+      cdM: cdM,
       cdDay: cdDay,
       fulfil: fulfil,
 
@@ -509,41 +621,96 @@ class Component extends React.Component {
       tabSpecs: tab === "specs",
       tabTerms: tab === "terms",
       tabReviews: tab === "reviews",
+      overviewNote: overviewNote,
       inBox: inBox.map(function (l) {
         return { label: l };
       }),
-      specs: SPECS.map(function (r) {
+      specs: specs.map(function (r) {
         return { k: r[0], v: r[1] };
       }),
-      terms: TERMS.map(function (t, i) {
-        return { n: "0" + (i + 1), title: t.title, body: t.body };
-      }),
+      terms: terms,
       dist: DIST,
       reviewPrompt: !!s.reviewPrompt,
       writeReview: function () {
         self.setState({ reviewPrompt: true });
       },
 
+      hasFbt: together.length > 1,
       fbt: fbt,
       fbtCount: fbtCount,
       fbtWord: fbtCount === 1 ? "item" : "items",
       fbtTotalFmt: fmt(fbtTotal),
-      fbtNone: fbtCount === 0,
+      fbtDepositFmt: fmt(fbtDeposit),
+      fbtNone: fbtCount === 0 || !!s.fbtBusy,
       fbtBtnBg: fbtCount === 0 ? "#9AA39C" : "#2F7A3C",
+      fbtBtnLabel: s.fbtBusy ? "Adding…" : "Add " + fbtCount + " to cart",
       fbtAdded: !!s.fbtAdded,
+      fbtErr: s.fbtErr || "",
       addAll: function () {
-        if (!fbtCount) return;
-        addCart(fbtTotal, fbtCount);
-        self.setState({ fbtAdded: true });
+        if (!fbtChosen.length || self.state.fbtBusy) return;
+        var start = self.tomorrowIso();
+        self.setState({ fbtBusy: true, fbtAdded: false, fbtErr: "" });
+        fbtChosen
+          .reduce(function (chain, id) {
+            return chain.then(function () {
+              return cart.add({ productId: id, mode: "rent", rentStart: start, rentDays: 1 });
+            });
+          }, Promise.resolve())
+          .then(function () {
+            self.setState({ fbtBusy: false, fbtAdded: true });
+          })
+          .catch(function (err) {
+            self.setState({ fbtBusy: false, fbtErr: errMsg(err) });
+          });
       },
 
       related: related,
     };
   }
-}
-
-function preventSubmit(e) {
-  e.preventDefault();
+  buy(qty, thenCheckout) {
+    var self = this;
+    var P = (this.props.initial || {}).product;
+    if (this.state.buyBusy) return;
+    this.setState({ buyBusy: true, buyErr: "", buyAdded: false });
+    cart
+      .add({ productId: P.id, mode: "buy", qty: qty })
+      .then(function () {
+        if (thenCheckout) return navigate("/checkout");
+        self.setState({ buyBusy: false, buyAdded: true });
+        clearTimeout(self.buyTimer);
+        self.buyTimer = setTimeout(function () {
+          self.setState({ buyAdded: false });
+        }, 1500);
+      })
+      .catch(function (err) {
+        self.setState({ buyBusy: false, buyErr: errMsg(err) });
+      });
+  }
+  addCard(id) {
+    var self = this;
+    if ((this.state.cardBusy || {})[id]) return;
+    var patch = function (key, v) {
+      var n = Object.assign({}, self.state[key]);
+      n[id] = v;
+      var o = {};
+      o[key] = n;
+      return o;
+    };
+    this.setState(Object.assign(patch("cardBusy", true), patch("cardErr", "")));
+    cart
+      .add({ productId: id, mode: "buy", qty: 1 })
+      .then(function () {
+        self.setState(Object.assign(patch("cardBusy", false), patch("cardAdded", true)));
+        self.cardTimers = self.cardTimers || {};
+        clearTimeout(self.cardTimers[id]);
+        self.cardTimers[id] = setTimeout(function () {
+          self.setState(patch("cardAdded", false));
+        }, 1500);
+      })
+      .catch(function (err) {
+        self.setState(Object.assign(patch("cardBusy", false), patch("cardErr", errMsg(err))));
+      });
+  }
 }
 
 const CSS =
@@ -731,7 +898,7 @@ export default class ProductScreen extends Component {
                 borderRadius: "16px",
                 background: "#FFFFFF",
               }}
-              onSubmit={preventSubmit}
+              onSubmit={vals.onSearch}
             >
               <div
                 role="group"
@@ -819,7 +986,7 @@ export default class ProductScreen extends Component {
                 Search
               </button>
             </form>
-            <Link href="/account" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
+            <Link href={vals.accountHref} style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
               <span
                 style={{
                   width: "44px",
@@ -846,7 +1013,9 @@ export default class ProductScreen extends Component {
                 </svg>
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25" }}>
-                <span style={{ fontSize: "12px", color: "#5E6470" }}>Hello, sign in</span>
+                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                  {vals.accountHello}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: "600" }}>Account</span>
               </span>
             </Link>
@@ -991,19 +1160,19 @@ export default class ProductScreen extends Component {
             }}
             data-sec="category-nav"
           >
-            <Link href="/shop" style={{ color: "#0D4F8B", fontWeight: "600" }}>
+            <Link href="/shop?dept=Electronics" style={{ color: "#0D4F8B", fontWeight: "600" }}>
               Electronics
             </Link>
-            <Link href="/shop">Phones</Link>
-            <Link href="/shop">{"Home & Living"}</Link>
-            <Link href="/shop">Kitchen</Link>
-            <Link href="/shop">Fashion</Link>
-            <Link href="/shop">Beauty</Link>
-            <Link href="/shop">{"Tools & DIY"}</Link>
-            <Link href="/shop">{"Baby & Kids"}</Link>
+            <Link href="/shop?dept=Electronics">Phones</Link>
+            <Link href="/shop?dept=Home%20%26%20Living">{"Home & Living"}</Link>
+            <Link href="/shop?dept=Kitchen">Kitchen</Link>
+            <Link href="/shop?dept=Fashion">Fashion</Link>
+            <Link href="/shop?dept=Beauty">Beauty</Link>
+            <Link href="/shop?dept=Tools%20%26%20DIY">{"Tools & DIY"}</Link>
+            <Link href="/shop?dept=Baby%20%26%20Kids">{"Baby & Kids"}</Link>
             <div style={{ flexGrow: "1" }} />
             <Link
-              href="/shop"
+              href="/shop?mode=rent"
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -1084,8 +1253,8 @@ export default class ProductScreen extends Component {
                 </svg>
               </li>
               <li>
-                <Link href="/shop" style={{ display: "flex", alignItems: "center", height: "28px" }}>
-                  Electronics
+                <Link href={vals.deptHref} style={{ display: "flex", alignItems: "center", height: "28px" }}>
+                  {vals.dept}
                 </Link>
               </li>
               <li aria-hidden="true" style={{ display: "flex" }}>
@@ -1102,27 +1271,31 @@ export default class ProductScreen extends Component {
                   <path d="M9 6l6 6-6 6" />
                 </svg>
               </li>
-              <li>
-                <Link href="/shop" style={{ display: "flex", alignItems: "center", height: "28px" }}>
-                  Cameras
-                </Link>
-              </li>
-              <li aria-hidden="true" style={{ display: "flex" }}>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </li>
+              {vals.showCat ? (
+                <>
+                  <li>
+                    <Link href={vals.deptHref} style={{ display: "flex", alignItems: "center", height: "28px" }}>
+                      {vals.cat}
+                    </Link>
+                  </li>
+                  <li aria-hidden="true" style={{ display: "flex" }}>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </li>
+                </>
+              ) : null}
               <li aria-current="page" style={{ fontWeight: "600", color: "#111318" }}>
-                Lumen Z6 Camera
+                {vals.name}
               </li>
             </ol>{" "}
           </nav>
@@ -1181,7 +1354,7 @@ export default class ProductScreen extends Component {
                     className="rv"
                     style={{ zoom: vals.shot.zoom, width: "200px", height: "200px", transform: `rotate(${vals.shot.rot})` }}
                   >
-                    <Render kind={"camera"} />
+                    <Render kind={vals.kind} />
                   </div>
                 </div>{" "}
                 <span
@@ -1216,7 +1389,7 @@ export default class ProductScreen extends Component {
                     <rect x="3" y="5" width="18" height="16" rx="2" />
                     <path d="M3 10h18M8 3v4M16 3v4" />
                   </svg>
-                  Buy or rent
+                  {vals.badge}
                 </span>{" "}
                 <div
                   style={{ position: "absolute", top: "16px", right: "16px", display: "flex", alignItems: "center", gap: "8px" }}
@@ -1435,7 +1608,7 @@ export default class ProductScreen extends Component {
                       }}
                     >
                       <div style={{ zoom: t.zoom, width: "200px", height: "200px", transform: `rotate(${t.rot})` }}>
-                        <Render kind={"camera"} />
+                        <Render kind={vals.kind} />
                       </div>
                     </button>
                   </Fragment>
@@ -1693,7 +1866,7 @@ export default class ProductScreen extends Component {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Link
-                  href="/shop"
+                  href={vals.brandHref}
                   style={{
                     height: "32px",
                     display: "flex",
@@ -1706,7 +1879,7 @@ export default class ProductScreen extends Component {
                   }}
                 >
                   <span style={{ width: "12px", height: "12px", borderRadius: "999px", border: "3px solid #111318" }} />
-                  LUMEN
+                  {vals.brand}
                 </Link>
                 <span style={{ fontSize: "13px", color: "#5E6470" }}>SKU [SKU]</span>
               </div>
@@ -1721,10 +1894,10 @@ export default class ProductScreen extends Component {
                     letterSpacing: "-0.045em",
                   }}
                 >
-                  Lumen Z6 Camera
+                  {vals.name}
                 </h1>
                 <div style={{ display: "flex", alignItems: "center", gap: "14px", fontSize: "14px", color: "#3A3F4A" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "2px" }} aria-label="Rated 4.8 out of 5">
+                  <span style={{ display: "flex", alignItems: "center", gap: "2px" }} aria-label={vals.ratingLabel}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
@@ -1740,7 +1913,7 @@ export default class ProductScreen extends Component {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0AE00" aria-hidden="true">
                       <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" />
                     </svg>
-                    <span style={{ marginLeft: "6px", fontWeight: "700", color: "#111318" }}>4.8</span>
+                    <span style={{ marginLeft: "6px", fontWeight: "700", color: "#111318" }}>{vals.rating}</span>
                   </span>
                   <a
                     href="#details"
@@ -1755,27 +1928,24 @@ export default class ProductScreen extends Component {
                       textUnderlineOffset: "3px",
                     }}
                   >
-                    [N] reviews
+                    {vals.reviewsLabel}
                   </a>
                   <span style={{ width: "1px", height: "16px", background: "#E6E4DE" }} />
                   <span style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600", color: "#2F7A3C" }}>
                     <span
                       style={{ width: "8px", height: "8px", borderRadius: "999px", background: "#418D4D", boxShadow: "0 0 0 4px #E4F2E6" }}
                     />
-                    In stock
+                    {vals.stock}
                   </span>
                 </div>
               </div>
-              <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.6", color: "#3A3F4A" }}>
-                A mirrorless camera for photos and 4K video. Rent it for a shoot, a wedding or a weekend away — or buy it to keep, with
-                warranty. Every rental is checked, cleaned and charged before it reaches you.
-              </p>
+              <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.6", color: "#3A3F4A" }}>{vals.description}</p>
               <div
                 role="group"
-                aria-label="Buy or rent this camera"
+                aria-label={vals.segLabel}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gridTemplateColumns: vals.segCols,
                   gap: "4px",
                   padding: "5px",
                   background: "#F3F2EE",
@@ -1784,52 +1954,56 @@ export default class ProductScreen extends Component {
                 data-cols="2"
                 data-sec="buy-rent-segmented"
               >
-                <button
-                  type="button"
-                  onClick={vals.pickBuy}
-                  aria-pressed={vals.buyAria}
-                  style={{
-                    height: "66px",
-                    border: "none",
-                    borderRadius: "14px",
-                    background: vals.buyBg,
-                    color: vals.buyFg,
-                    font: "inherit",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "2px",
-                    boxShadow: vals.buyShadow,
-                  }}
-                >
-                  <span style={{ fontSize: "17px", fontWeight: "700" }}>Buy it</span>
-                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.buySub }}>ETB 139,000</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={vals.pickRent}
-                  aria-pressed={vals.rentAria}
-                  style={{
-                    height: "66px",
-                    border: "none",
-                    borderRadius: "14px",
-                    background: vals.rentBg,
-                    color: vals.rentFg,
-                    font: "inherit",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "2px",
-                    boxShadow: vals.rentShadow,
-                  }}
-                >
-                  <span style={{ fontSize: "17px", fontWeight: "700" }}>Rent it</span>
-                  <span style={{ fontSize: "13px", fontWeight: "500", color: vals.rentSub }}>from ETB 2,500 / day</span>
-                </button>
+                {vals.canBuy ? (
+                  <button
+                    type="button"
+                    onClick={vals.pickBuy}
+                    aria-pressed={vals.buyAria}
+                    style={{
+                      height: "66px",
+                      border: "none",
+                      borderRadius: "14px",
+                      background: vals.buyBg,
+                      color: vals.buyFg,
+                      font: "inherit",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "2px",
+                      boxShadow: vals.buyShadow,
+                    }}
+                  >
+                    <span style={{ fontSize: "17px", fontWeight: "700" }}>Buy it</span>
+                    <span style={{ fontSize: "13px", fontWeight: "500", color: vals.buySub }}>{vals.buyPriceFmt}</span>
+                  </button>
+                ) : null}
+                {vals.canRent ? (
+                  <button
+                    type="button"
+                    onClick={vals.pickRent}
+                    aria-pressed={vals.rentAria}
+                    style={{
+                      height: "66px",
+                      border: "none",
+                      borderRadius: "14px",
+                      background: vals.rentBg,
+                      color: vals.rentFg,
+                      font: "inherit",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "2px",
+                      boxShadow: vals.rentShadow,
+                    }}
+                  >
+                    <span style={{ fontSize: "17px", fontWeight: "700" }}>Rent it</span>
+                    <span style={{ fontSize: "13px", fontWeight: "500", color: vals.rentSub }}>{vals.rentFromFmt}</span>
+                  </button>
+                ) : null}
               </div>
               {vals.isRent ? (
                 <>
@@ -1941,49 +2115,51 @@ export default class ProductScreen extends Component {
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "600" }}>
-                        {"Add-ons "}
-                        <span style={{ fontWeight: "400", color: "#5E6470" }}>· charged per day</span>
-                      </span>
-                      {(vals.addons || []).map((a, i0) => (
-                        <Fragment key={i0}>
-                          <label
-                            className="opt"
-                            style={{
-                              minHeight: "56px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "14px",
-                              border: `1.5px solid ${a.border}`,
-                              borderRadius: "14px",
-                              background: a.bg,
-                              cursor: "pointer",
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={a.checked}
-                              onChange={a.toggle}
-                              style={{ width: "20px", height: "20px", margin: "0", flexShrink: "0" }}
-                            />
-                            <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "1px" }}>
-                              <span style={{ fontSize: "15px", fontWeight: "600" }} suppressHydrationWarning>
-                                {a.label}
+                    {vals.hasAddons ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        <span style={{ fontSize: "14px", fontWeight: "600" }}>
+                          {"Add-ons "}
+                          <span style={{ fontWeight: "400", color: "#5E6470" }}>· charged per day</span>
+                        </span>
+                        {(vals.addons || []).map((a, i0) => (
+                          <Fragment key={i0}>
+                            <label
+                              className="opt"
+                              style={{
+                                minHeight: "56px",
+                                boxSizing: "border-box",
+                                padding: "0 16px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "14px",
+                                border: `1.5px solid ${a.border}`,
+                                borderRadius: "14px",
+                                background: a.bg,
+                                cursor: "pointer",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={a.checked}
+                                onChange={a.toggle}
+                                style={{ width: "20px", height: "20px", margin: "0", flexShrink: "0" }}
+                              />
+                              <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "1px" }}>
+                                <span style={{ fontSize: "15px", fontWeight: "600" }} suppressHydrationWarning>
+                                  {a.label}
+                                </span>
+                                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                                  {a.note}
+                                </span>
                               </span>
-                              <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
-                                {a.note}
+                              <span style={{ fontSize: "14px", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
+                                +{a.priceFmt}/day
                               </span>
-                            </span>
-                            <span style={{ fontSize: "14px", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
-                              +{a.priceFmt}/day
-                            </span>
-                          </label>
-                        </Fragment>
-                      ))}
-                    </div>
+                            </label>
+                          </Fragment>
+                        ))}
+                      </div>
+                    ) : null}
                     <div
                       aria-live="polite"
                       style={{
@@ -2015,7 +2191,7 @@ export default class ProductScreen extends Component {
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span style={{ color: "#3A3F4A" }}>Refundable deposit</span>
-                        <span style={{ fontWeight: "600" }}>ETB [X]</span>
+                        <span style={{ fontWeight: "600" }}>{vals.depositFmt}</span>
                       </div>
                       <div style={{ height: "1px", background: "#E6E4DE" }} />
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -2033,7 +2209,8 @@ export default class ProductScreen extends Component {
                         </span>
                       </div>
                       <span style={{ fontSize: "13px", color: "#5E6470", marginTop: "-6px" }}>
-                        Plus the refundable deposit, returned after we collect the camera.
+                        {"Plus the refundable deposit, returned after we collect the "}
+                        {vals.name}.
                       </span>
                     </div>
                     <Link
@@ -2068,9 +2245,14 @@ export default class ProductScreen extends Component {
                         <rect x="3" y="5" width="18" height="16" rx="2" />
                         <path d="M3 10h18M8 3v4M16 3v4" />
                       </svg>
-                      {"Book rental · "}
+                      {vals.rentBusy ? "Booking… · " : "Book rental · "}
                       {vals.rentTotalFmt}
                     </Link>
+                    {vals.rentErr ? (
+                      <span role="alert" style={{ fontSize: "13px", color: "#C42A1C", textAlign: "center", marginTop: "-10px" }}>
+                        {vals.rentErr}
+                      </span>
+                    ) : null}
                     <span style={{ fontSize: "13px", color: "#5E6470", textAlign: "center", marginTop: "-10px" }}>
                       Free cancellation up to [N] hours before delivery.
                     </span>
@@ -2100,77 +2282,6 @@ export default class ProductScreen extends Component {
                         <strong>ETB [X]/month</strong>
                         {" over [TERM] with instalments · Free delivery"}
                       </span>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                      <span
-                        id="var-label"
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: "700",
-                          letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                          color: "#0D4F8B",
-                        }}
-                      >
-                        Choose a set
-                      </span>
-                      <div
-                        role="group"
-                        aria-labelledby="var-label"
-                        style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}
-                        data-cols="2"
-                      >
-                        {(vals.variants || []).map((v, i0) => (
-                          <Fragment key={i0}>
-                            <button
-                              type="button"
-                              className="opt"
-                              onClick={v.pick}
-                              aria-pressed={v.aria}
-                              style={{
-                                height: "76px",
-                                padding: "0 16px",
-                                border: `2px solid ${v.border}`,
-                                borderRadius: "16px",
-                                background: v.bg,
-                                font: "inherit",
-                                color: "#111318",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "14px",
-                                textAlign: "left",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: "48px",
-                                  height: "48px",
-                                  flexShrink: "0",
-                                  borderRadius: "12px",
-                                  background: "#E0F1FF",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <div style={{ zoom: "0.26", width: "200px", height: "200px" }}>
-                                  <Render kind={"camera"} />
-                                </div>
-                              </span>
-                              <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                                <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
-                                  {v.label}
-                                </span>
-                                <span style={{ fontSize: "13px", color: "#3A3F4A" }} suppressHydrationWarning>
-                                  {v.sub}
-                                </span>
-                              </span>
-                            </button>
-                          </Fragment>
-                        ))}
-                      </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
@@ -2276,6 +2387,7 @@ export default class ProductScreen extends Component {
                         href="/cart"
                         className="btn-t"
                         onClick={vals.addBuy}
+                        aria-disabled={vals.buyBusy ? "true" : undefined}
                         style={{
                           flexGrow: "1",
                           height: "58px",
@@ -2303,11 +2415,13 @@ export default class ProductScreen extends Component {
                           <path d="M5 8h14l-1.2 12H6.2L5 8z" />
                           <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
                         </svg>
-                        Add to cart
+                        {vals.addBuyLabel}
                       </Link>
                       <Link
                         href="/checkout"
                         className="btn-o"
+                        onClick={vals.buyNow}
+                        aria-disabled={vals.buyBusy ? "true" : undefined}
                         style={{
                           width: "190px",
                           height: "58px",
@@ -2325,6 +2439,11 @@ export default class ProductScreen extends Component {
                         Buy now
                       </Link>
                     </div>
+                    {vals.buyErr ? (
+                      <span role="alert" style={{ fontSize: "13px", color: "#C42A1C", textAlign: "center", marginTop: "-10px" }}>
+                        {vals.buyErr}
+                      </span>
+                    ) : null}
                     <span style={{ fontSize: "13px", color: "#5E6470", textAlign: "center", marginTop: "-10px" }}>
                       Genuine, sealed stock with [TERM] manufacturer warranty.
                     </span>
@@ -2353,7 +2472,8 @@ export default class ProductScreen extends Component {
                     letterSpacing: "-0.04em",
                   }}
                 >
-                  Everything about the Z6
+                  {"Everything about the "}
+                  {vals.name}
                 </h2>
               </div>
               <div
@@ -2415,17 +2535,11 @@ export default class ProductScreen extends Component {
                           letterSpacing: "-0.035em",
                         }}
                       >
-                        About the Lumen Z6
+                        {"About the "}
+                        {vals.name}
                       </h3>
-                      <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.65", color: "#3A3F4A" }}>
-                        [PRODUCT DESCRIPTION — two or three short paragraphs from the supplier: what the camera is for, who it suits, and
-                        what makes it stand out.]
-                      </p>
-                      <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.65", color: "#3A3F4A" }}>
-                        {
-                          "Renting? Your Z6 arrives with a charged battery and a formatted memory card slot, ready to shoot. Buying? It ships sealed, with the manufacturer's warranty."
-                        }
-                      </p>
+                      <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.65", color: "#3A3F4A" }}>{vals.description}</p>
+                      <p style={{ margin: "0", fontSize: "16px", lineHeight: "1.65", color: "#3A3F4A" }}>{vals.overviewNote}</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "10px", paddingTop: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: "600" }}>Popular for</span>
                         <ul style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", flexWrap: "wrap", gap: "8px" }}>
@@ -2715,9 +2829,12 @@ export default class ProductScreen extends Component {
                             letterSpacing: "-0.04em",
                           }}
                         >
-                          4.8
+                          {vals.rating}
                         </span>
-                        <span style={{ fontSize: "15px", color: "#5E6470" }}>out of 5 · [N] reviews</span>
+                        <span style={{ fontSize: "15px", color: "#5E6470" }}>
+                          {"out of 5 · "}
+                          {vals.reviewsLabel}
+                        </span>
                       </div>
                       <ul
                         aria-label="Rating distribution (placeholder)"
@@ -2810,7 +2927,9 @@ export default class ProductScreen extends Component {
                         Reviews will appear here
                       </span>
                       <span style={{ fontSize: "15px", lineHeight: "1.55", color: "#5E6470", maxWidth: "420px" }}>
-                        Customers who bought or rented the Lumen Z6 can share how it went after their order.
+                        {"Customers who bought or rented the "}
+                        {vals.name}
+                        {" can share how it went after their order."}
                       </span>
                       <button
                         type="button"
@@ -2866,220 +2985,231 @@ export default class ProductScreen extends Component {
               ) : null}{" "}
             </div>
           </section>
-          <section style={{ padding: "96px var(--gutter) 0" }} data-sec="frequently-rented-together">
-            {" "}
-            <div
-              style={{
-                background: "#F6F5F1",
-                borderRadius: "36px",
-                padding: "40px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "28px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <span
-                    style={{ fontSize: "13px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#2F7A3C" }}
-                  >
-                    Rent the set
-                  </span>
-                  <h2
-                    style={{
-                      margin: "0",
-                      fontFamily: "'Bricolage Grotesque', sans-serif",
-                      fontSize: "44px",
-                      lineHeight: "1",
-                      fontWeight: "700",
-                      letterSpacing: "-0.04em",
-                    }}
-                  >
-                    {"Frequently rented "}
-                    <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontWeight: "400", color: "#2F7A3C" }}>
-                      together
+          {vals.hasFbt ? (
+            <section style={{ padding: "96px var(--gutter) 0" }} data-sec="frequently-rented-together">
+              {" "}
+              <div
+                style={{
+                  background: "#F6F5F1",
+                  borderRadius: "36px",
+                  padding: "40px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "28px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <span
+                      style={{ fontSize: "13px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#2F7A3C" }}
+                    >
+                      Rent the set
                     </span>
-                  </h2>
+                    <h2
+                      style={{
+                        margin: "0",
+                        fontFamily: "'Bricolage Grotesque', sans-serif",
+                        fontSize: "44px",
+                        lineHeight: "1",
+                        fontWeight: "700",
+                        letterSpacing: "-0.04em",
+                      }}
+                    >
+                      {"Frequently rented "}
+                      <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontWeight: "400", color: "#2F7A3C" }}>
+                        together
+                      </span>
+                    </h2>
+                  </div>
+                  <span style={{ fontSize: "15px", color: "#5E6470" }}>Tick what you need. Prices are per day.</span>
                 </div>
-                <span style={{ fontSize: "15px", color: "#5E6470" }}>Tick what you need. Prices are per day.</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "stretch", gap: "14px" }}>
-                {(vals.fbt || []).map((f, i0) => (
-                  <Fragment key={i0}>
-                    {f.plus ? (
-                      <>
+                <div style={{ display: "flex", alignItems: "stretch", gap: "14px" }}>
+                  {(vals.fbt || []).map((f, i0) => (
+                    <Fragment key={i0}>
+                      {f.plus ? (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              alignSelf: "center",
+                              width: "36px",
+                              height: "36px",
+                              flexShrink: "0",
+                              borderRadius: "999px",
+                              background: "#FFFFFF",
+                              color: "#5E6470",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                          </span>
+                        </>
+                      ) : null}
+                      <label
+                        style={{
+                          width: "232px",
+                          flexShrink: "0",
+                          boxSizing: "border-box",
+                          padding: "12px 12px 16px",
+                          border: `2px solid ${f.border}`,
+                          borderRadius: "24px",
+                          background: "#FFFFFF",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                          cursor: "pointer",
+                        }}
+                      >
                         <span
-                          aria-hidden="true"
                           style={{
-                            alignSelf: "center",
-                            width: "36px",
-                            height: "36px",
-                            flexShrink: "0",
-                            borderRadius: "999px",
-                            background: "#FFFFFF",
-                            color: "#5E6470",
+                            position: "relative",
+                            height: "150px",
+                            borderRadius: "18px",
+                            background: f.bg,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
+                            overflow: "hidden",
                           }}
                         >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M12 5v14M5 12h14" />
-                          </svg>
+                          <input
+                            type="checkbox"
+                            checked={f.checked}
+                            onChange={f.toggle}
+                            style={{ position: "absolute", top: "12px", left: "12px", width: "22px", height: "22px", margin: "0" }}
+                            data-abs="deco"
+                          />
+                          <span style={{ display: "block", zoom: "0.66", width: "200px", height: "200px" }}>
+                            <Render kind={f.kind} />
+                          </span>
                         </span>
-                      </>
-                    ) : null}
-                    <label
-                      style={{
-                        width: "232px",
-                        flexShrink: "0",
-                        boxSizing: "border-box",
-                        padding: "12px 12px 16px",
-                        border: `2px solid ${f.border}`,
-                        borderRadius: "24px",
-                        background: "#FFFFFF",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <span
+                        <span style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "0 4px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
+                            {f.tag}
+                          </span>
+                          <span style={{ fontSize: "15px", fontWeight: "700", letterSpacing: "-0.01em" }} suppressHydrationWarning>
+                            {f.name}
+                          </span>
+                          <span style={{ fontSize: "15px", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
+                            {f.priceFmt} <span style={{ fontSize: "13px", fontWeight: "500", color: "#5E6470" }}>/ day</span>
+                          </span>
+                        </span>
+                      </label>
+                    </Fragment>
+                  ))}
+                  <div style={{ flexGrow: "1" }} />
+                  <div
+                    style={{
+                      width: "340px",
+                      flexShrink: "0",
+                      boxSizing: "border-box",
+                      background: "#FFFFFF",
+                      borderRadius: "24px",
+                      padding: "28px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      gap: "18px",
+                    }}
+                    data-w
+                  >
+                    <div aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <span style={{ fontSize: "14px", color: "#5E6470" }} suppressHydrationWarning>
+                        {vals.fbtCount} {vals.fbtWord}
+                        {" selected"}
+                      </span>
+                      <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                        <span
+                          style={{
+                            fontFamily: "'Bricolage Grotesque', sans-serif",
+                            fontSize: "40px",
+                            lineHeight: "1",
+                            fontWeight: "700",
+                            letterSpacing: "-0.04em",
+                          }}
+                          suppressHydrationWarning
+                        >
+                          {vals.fbtTotalFmt}
+                        </span>
+                        <span style={{ fontSize: "15px", color: "#5E6470" }}>/ day</span>
+                      </span>
+                      <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
+                        {"Plus refundable deposits, "}
+                        {vals.fbtDepositFmt}
+                        {" in total."}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <button
+                        type="button"
+                        className="btn-y"
+                        onClick={vals.addAll}
+                        disabled={vals.fbtNone}
                         style={{
-                          position: "relative",
-                          height: "150px",
-                          borderRadius: "18px",
-                          background: f.bg,
+                          height: "54px",
+                          border: "none",
+                          borderRadius: "14px",
+                          background: vals.fbtBtnBg,
+                          color: "#FFFFFF",
+                          font: "inherit",
+                          fontSize: "15px",
+                          fontWeight: "700",
+                          cursor: "pointer",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          overflow: "hidden",
+                          gap: "8px",
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={f.checked}
-                          onChange={f.toggle}
-                          style={{ position: "absolute", top: "12px", left: "12px", width: "22px", height: "22px", margin: "0" }}
-                          data-abs="deco"
-                        />
-                        <span style={{ display: "block", zoom: "0.66", width: "200px", height: "200px" }}>
-                          <Render kind={f.kind} />
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M5 8h14l-1.2 12H6.2L5 8z" />
+                          <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+                        </svg>
+                        {vals.fbtBtnLabel}
+                      </button>
+                      {vals.fbtErr ? (
+                        <span role="alert" style={{ fontSize: "13px", color: "#C42A1C", fontWeight: "600", textAlign: "center" }}>
+                          {vals.fbtErr}
                         </span>
-                      </span>
-                      <span style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "0 4px" }}>
-                        <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }} suppressHydrationWarning>
-                          {f.tag}
-                        </span>
-                        <span style={{ fontSize: "15px", fontWeight: "700", letterSpacing: "-0.01em" }} suppressHydrationWarning>
-                          {f.name}
-                        </span>
-                        <span style={{ fontSize: "15px", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
-                          {f.priceFmt} <span style={{ fontSize: "13px", fontWeight: "500", color: "#5E6470" }}>/ day</span>
-                        </span>
-                      </span>
-                    </label>
-                  </Fragment>
-                ))}
-                <div style={{ flexGrow: "1" }} />
-                <div
-                  style={{
-                    width: "340px",
-                    flexShrink: "0",
-                    boxSizing: "border-box",
-                    background: "#FFFFFF",
-                    borderRadius: "24px",
-                    padding: "28px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "18px",
-                  }}
-                  data-w
-                >
-                  <div aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <span style={{ fontSize: "14px", color: "#5E6470" }} suppressHydrationWarning>
-                      {vals.fbtCount} {vals.fbtWord}
-                      {" selected"}
-                    </span>
-                    <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                      <span
-                        style={{
-                          fontFamily: "'Bricolage Grotesque', sans-serif",
-                          fontSize: "40px",
-                          lineHeight: "1",
-                          fontWeight: "700",
-                          letterSpacing: "-0.04em",
-                        }}
-                        suppressHydrationWarning
-                      >
-                        {vals.fbtTotalFmt}
-                      </span>
-                      <span style={{ fontSize: "15px", color: "#5E6470" }}>/ day</span>
-                    </span>
-                    <span style={{ fontSize: "13px", color: "#5E6470" }}>Plus refundable deposits, ETB [X] each.</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    <button
-                      type="button"
-                      className="btn-y"
-                      onClick={vals.addAll}
-                      disabled={vals.fbtNone}
-                      style={{
-                        height: "54px",
-                        border: "none",
-                        borderRadius: "14px",
-                        background: vals.fbtBtnBg,
-                        color: "#FFFFFF",
-                        font: "inherit",
-                        fontSize: "15px",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M5 8h14l-1.2 12H6.2L5 8z" />
-                        <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
-                      </svg>
-                      Add all to cart
-                    </button>
-                    {vals.fbtAdded ? (
-                      <>
-                        <span role="status" style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600", textAlign: "center" }}>
-                          {"Added to your cart · "}
-                          <Link href="/cart" style={{ textDecoration: "underline", textUnderlineOffset: "3px" }}>
-                            View cart
-                          </Link>
-                        </span>
-                      </>
-                    ) : null}
+                      ) : null}
+                      {vals.fbtAdded ? (
+                        <>
+                          <span role="status" style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600", textAlign: "center" }}>
+                            {"Added to your cart · "}
+                            <Link href="/cart" style={{ textDecoration: "underline", textUnderlineOffset: "3px" }}>
+                              View cart
+                            </Link>
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>{" "}
-          </section>
+              </div>{" "}
+            </section>
+          ) : null}
           <section
             style={{ padding: "96px var(--gutter) 0", display: "flex", flexDirection: "column", gap: "32px" }}
             data-sec="you-might-also-need"
@@ -3146,7 +3276,7 @@ export default class ProductScreen extends Component {
                     }}
                   >
                     <Link
-                      href="/product"
+                      href={p.href}
                       aria-label={p.name}
                       style={{
                         position: "relative",
@@ -3236,7 +3366,7 @@ export default class ProductScreen extends Component {
                         </span>
                       </div>
                       <Link
-                        href="/product"
+                        href={p.href}
                         style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                         suppressHydrationWarning
                       >
@@ -3318,6 +3448,7 @@ export default class ProductScreen extends Component {
                           type="button"
                           className="btn-t"
                           onClick={p.add}
+                          disabled={p.busy}
                           aria-label={p.addLabel}
                           style={{
                             height: "42px",

@@ -4,110 +4,33 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
+import { rentalBasePrice } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-var P = [
-  { id: "p1", name: "Lumen Z6 Camera", cat: "Electronics", kind: "camera", bg: "#E0F1FF", buy: 139000, rent: 2500, rating: "4.8" },
-  {
-    id: "p2",
-    name: "Pulse ANC Headphones",
-    cat: "Electronics",
-    kind: "headphones",
-    bg: "#EEE8FF",
-    buy: 18900,
-    was: 23500,
-    rating: "4.9",
-    left: 6,
-    sold: 78,
-  },
-  { id: "p3", name: "Aero X Pro", cat: "Phones", kind: "phone", bg: "#DDF5EA", buy: 89500, rating: "4.7" },
-  {
-    id: "p4",
-    name: "Orbit Watch 2",
-    cat: "Wearables",
-    kind: "watch",
-    bg: "#FFEADB",
-    buy: 21500,
-    was: 26900,
-    rating: "4.6",
-    left: 3,
-    sold: 90,
-  },
-  { id: "p5", name: "Linen 3-Seater Sofa", cat: "Home & Living", kind: "sofa", bg: "#F3EEE6", buy: 84900, rating: "4.7" },
-  {
-    id: "p6",
-    name: "Barista Espresso Machine",
-    cat: "Kitchen",
-    kind: "espresso",
-    bg: "#FFF4C7",
-    buy: 38500,
-    was: 45000,
-    rating: "4.6",
-    left: 9,
-    sold: 55,
-  },
-  {
-    id: "p7",
-    name: "Street Runner Sneakers",
-    cat: "Fashion",
-    kind: "sneaker",
-    bg: "#FFE4EF",
-    buy: 9800,
-    was: 12400,
-    rating: "4.5",
-    left: 12,
-    sold: 40,
-  },
-  { id: "p8", name: "Glow Skincare Duo", cat: "Beauty", kind: "skincare", bg: "#D9F3F0", buy: 4600, rating: "4.8" },
-  { id: "p9", name: "Cordless Drill Kit", cat: "Tools & DIY", kind: "drill", bg: "#FFF4C7", buy: 14500, rent: 800, rating: "4.9" },
-  {
-    id: "p10",
-    name: "Canopy Tent 3 × 3 m",
-    cat: "Events & Party",
-    kind: "tent",
-    bg: "#FFEADB",
-    buy: 45000,
-    rent: 3500,
-    rating: "4.7",
-    rentOnly: true,
-  },
-  { id: "p11", name: "Trail Mountain Bike", cat: "Sports", kind: "bike", bg: "#DDF5EA", buy: 65000, rent: 1200, rating: "4.5" },
-  {
-    id: "p12",
-    name: "Stack & Learn Blocks",
-    cat: "Baby & Kids",
-    kind: "blocks",
-    bg: "#E0F1FF",
-    buy: 2900,
-    was: 3600,
-    rating: "4.8",
-    left: 4,
-    sold: 84,
-  },
-];
-var FLASH = ["p2", "p4", "p6", "p7", "p12"];
+// Short labels for the rent-vs-buy calculator, by product kind (falls back to the product name).
+var CALC_LABELS = { camera: "Camera", tent: "Party tent", drill: "Drill", bike: "Bike" };
+// The design's order for the calculator items and the "Shop by category" tiles.
+var CALC_ORDER = ["camera", "tent", "drill"];
+var CAT_ORDER = ["Electronics", "Phones", "Home & Living", "Kitchen", "Fashion", "Beauty", "Tools & DIY", "Events & Party"];
 var TABS = [
-  { id: "best", label: "Best sellers", ids: ["p1", "p2", "p3", "p5", "p6", "p8", "p11", "p7"] },
-  { id: "new", label: "New arrivals", ids: ["p3", "p4", "p7", "p8", "p11", "p12", "p2", "p6"] },
-  { id: "rent", label: "Most rented", ids: ["p1", "p10", "p9", "p11"] },
+  { id: "best", label: "Best sellers" },
+  { id: "new", label: "New arrivals" },
+  { id: "rent", label: "Most rented" },
 ];
-var CALC = [
-  { id: "camera", label: "Camera", name: "Lumen Z6 Camera", kind: "camera", rate: 2500, buy: 139000 },
-  { id: "tent", label: "Party tent", name: "Canopy Tent 3 × 3 m", kind: "tent", rate: 3500, buy: 45000 },
-  { id: "drill", label: "Drill", name: "Cordless Drill Kit", kind: "drill", rate: 800, buy: 14500 },
-];
-var CATS = [
-  { label: "Electronics", kind: "headphones", bg: "#E0F1FF", tag: "Buy · Rent" },
-  { label: "Phones", kind: "phone", bg: "#EEE8FF", tag: "Buy" },
-  { label: "Home & Living", kind: "sofa", bg: "#DDF5EA", tag: "Buy" },
-  { label: "Kitchen", kind: "espresso", bg: "#F3EEE6", tag: "Buy" },
-  { label: "Fashion", kind: "sneaker", bg: "#FFEADB", tag: "Buy" },
-  { label: "Beauty", kind: "skincare", bg: "#FFE4EF", tag: "Buy" },
-  { label: "Tools & DIY", kind: "drill", bg: "#FFF4C7", tag: "Buy · Rent" },
-  { label: "Events & Party", kind: "tent", bg: "#D9F3F0", tag: "Rent" },
-];
+function shopHref(params) {
+  var q = Object.keys(params)
+    .map(function (k) {
+      return k + "=" + encodeURIComponent(params[k]);
+    })
+    .join("&");
+  return "/shop" + (q ? "?" + q : "");
+}
+function deptHref(name) {
+  return shopHref({ dept: name });
+}
 var SLIDES = [
   {
     eyebrow: "New season 2026",
@@ -117,6 +40,9 @@ var SLIDES = [
     cta1: "Shop now",
     href1: "/shop",
     cta2: "Rent something",
+    href2: "/shop?mode=rent",
+    chipKind: "camera",
+    chipRent: true,
     bg: "#0D4F8B",
     circle: "#1A62A8",
     k1: "camera",
@@ -131,8 +57,10 @@ var SLIDES = [
     accent: "Rent the gear.",
     sub: "Tents, chairs, sound and lights — delivered, set up and collected when you are done.",
     cta1: "See event bundles",
-    href1: "/shop",
+    href1: deptHref("Events & Party"),
     cta2: "Browse rentals",
+    href2: "/shop?mode=rent",
+    chipKind: "tent",
     bg: "#1F5E33",
     circle: "#2F7A3C",
     k1: "tent",
@@ -147,8 +75,10 @@ var SLIDES = [
     accent: "feel brand new.",
     sub: "Sofas, coffee machines and everyday essentials, with free delivery over ETB [X].",
     cta1: "Shop home",
-    href1: "/shop",
+    href1: deptHref("Home & Living"),
     cta2: "View offers",
+    href2: "/shop",
+    chipKind: "sofa",
     bg: "#1B2230",
     circle: "#2A3345",
     k1: "sofa",
@@ -207,6 +137,7 @@ function g(title, links) {
 var DEPTS = [
   {
     name: "Electronics",
+    shop: "Electronics",
     kind: "headphones",
     promoBg: "#EAF3FA",
     promoFg: "#1679BE",
@@ -220,6 +151,7 @@ var DEPTS = [
   },
   {
     name: "Phones & Tablets",
+    shop: "Phones",
     kind: "phone",
     promoBg: "#EEE8FF",
     promoFg: "#5B3FD0",
@@ -233,6 +165,7 @@ var DEPTS = [
   },
   {
     name: "Home & Living",
+    shop: "Home & Living",
     kind: "sofa",
     promoBg: "#F3EEE6",
     promoFg: "#7A4E2D",
@@ -246,6 +179,7 @@ var DEPTS = [
   },
   {
     name: "Kitchen",
+    shop: "Kitchen",
     kind: "espresso",
     promoBg: "#FFF4C7",
     promoFg: "#8A6300",
@@ -259,6 +193,7 @@ var DEPTS = [
   },
   {
     name: "Fashion",
+    shop: "Fashion",
     kind: "sneaker",
     promoBg: "#FFEADB",
     promoFg: "#B4431C",
@@ -272,6 +207,7 @@ var DEPTS = [
   },
   {
     name: "Beauty",
+    shop: "Beauty",
     kind: "skincare",
     promoBg: "#FFE4EF",
     promoFg: "#B0245F",
@@ -285,6 +221,7 @@ var DEPTS = [
   },
   {
     name: "Tools & DIY",
+    shop: "Tools & DIY",
     kind: "drill",
     promoBg: "#E4F2E6",
     promoFg: "#2F7A3C",
@@ -298,6 +235,7 @@ var DEPTS = [
   },
   {
     name: "Events & Party",
+    shop: "Events & Party",
     kind: "tent",
     promoBg: "#E4F2E6",
     promoFg: "#2F7A3C",
@@ -322,10 +260,15 @@ function fmt(n) {
 function pad(n) {
   return (n < 10 ? "0" : "") + n;
 }
-function byId(id) {
-  return P.filter(function (p) {
-    return p.id === id;
+function byKind(list, kind) {
+  return list.filter(function (p) {
+    return p.kind === kind;
   })[0];
+}
+function tomorrowISO() {
+  var d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
 }
 
 class Component extends React.Component {
@@ -336,11 +279,11 @@ class Component extends React.Component {
     this.state = {
       mode: "buy",
       tab: "best",
-      calc: "tent",
+      calc: null,
       days: 4,
-      wished: { p5: true },
-      cartCount: 3,
-      cartTotal: 99700,
+      busy: {},
+      done: {},
+      errs: {},
       now: Date.now(),
       slide: 0,
       heroPaused: false,
@@ -351,6 +294,7 @@ class Component extends React.Component {
   }
   componentDidMount() {
     var self = this;
+    this.unsubShop = connectShop(this);
     var reduce = false;
     try {
       reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -368,15 +312,62 @@ class Component extends React.Component {
   }
   componentWillUnmount() {
     clearInterval(this.timer);
+    this.unsubShop && this.unsubShop();
+    (this.flashTimers || []).forEach(clearTimeout);
+  }
+  // Runs a store action for one control: disables it while pending, shows "Added" for ~1.5s, keeps the error message.
+  runAction(key, fn) {
+    var self = this;
+    if (self.state.busy[key]) return;
+    var patch = function (field, value) {
+      var n = Object.assign({}, self.state[field]);
+      if (value) n[key] = value;
+      else delete n[key];
+      var o = {};
+      o[field] = n;
+      return o;
+    };
+    self.setState(Object.assign(patch("busy", true), patch("errs", null), patch("done", null)));
+    Promise.resolve()
+      .then(fn)
+      .then(
+        function () {
+          self.setState(Object.assign(patch("busy", null), patch("done", true)));
+          self.flashTimers = self.flashTimers || [];
+          self.flashTimers.push(
+            setTimeout(function () {
+              self.setState(patch("done", null));
+            }, 1500),
+          );
+        },
+        function (err) {
+          self.setState(
+            Object.assign(patch("busy", null), patch("errs", (err && err.message) || "Something went wrong. Please try again.")),
+          );
+        },
+      );
   }
   renderVals() {
     var self = this;
     var s = this.state || {};
-    var wished = s.wished || {};
-    var addToCart = function (amount) {
+    var initial = this.props.initial || {};
+    var P = initial.products || [];
+    var shop = shopState(initial);
+    var hv = headerVals(shop);
+    var busy = s.busy || {};
+    var done = s.done || {};
+    var errs = s.errs || {};
+    var addToCart = function (key, p, mode) {
       return function () {
-        self.setState({ cartCount: (self.state.cartCount || 0) + 1, cartTotal: (self.state.cartTotal || 0) + amount });
+        self.runAction(key, function () {
+          return mode === "rent"
+            ? cart.add({ productId: p.id, mode: "rent", qty: 1, rentStart: tomorrowISO(), rentDays: 1 })
+            : cart.add({ productId: p.id, mode: "buy", qty: 1 });
+        });
       };
+    };
+    var productHref = function (p) {
+      return p ? "/product/" + p.id : "/shop";
     };
 
     var left = Math.max(0, (this.end || Date.now() + DUR) - (s.now || Date.now()));
@@ -399,22 +390,36 @@ class Component extends React.Component {
       };
     });
 
-    var flash = FLASH.map(function (id) {
-      var p = byId(id);
-      return Object.assign({}, p, {
-        priceFmt: fmt(p.buy),
-        wasFmt: fmt(p.was),
-        discount: "-" + Math.round((1 - p.buy / p.was) * 100) + "%",
-        soldPct: p.sold + "%",
-        add: addToCart(p.buy),
+    var flash = P.filter(function (p) {
+      return !!p.was && !p.rentOnly;
+    })
+      .slice(0, 5)
+      .map(function (p) {
+        var key = "flash:" + p.id;
+        return Object.assign({}, p, {
+          href: productHref(p),
+          priceFmt: fmt(p.buy),
+          wasFmt: fmt(p.was),
+          discount: "-" + Math.round((1 - p.buy / p.was) * 100) + "%",
+          soldPct: p.sold + "%",
+          add: addToCart(key, p, "buy"),
+          busy: !!busy[key],
+          addText: busy[key] ? "Adding…" : done[key] ? "Added" : "Add to cart",
+          err: errs[key] || "",
+        });
       });
-    });
 
     var tab = s.tab || "best";
-    var tabDef =
-      TABS.filter(function (t) {
-        return t.id === tab;
-      })[0] || TABS[0];
+    var tabList =
+      tab === "new"
+        ? P.slice().reverse()
+        : tab === "rent"
+          ? P.filter(function (p) {
+              return !!p.rent;
+            })
+          : P.slice().sort(function (a, b) {
+              return parseFloat(b.rating) - parseFloat(a.rating) || b.reviews - a.reviews;
+            });
     var tabs = TABS.map(function (t) {
       var on = t.id === tab;
       return {
@@ -428,11 +433,11 @@ class Component extends React.Component {
         },
       };
     });
-    var top = tabDef.ids.map(function (id) {
-      var p = byId(id);
+    var top = tabList.slice(0, 8).map(function (p) {
+      var key = "top:" + p.id;
       var cm = (s.cardMode || {})[p.id];
       var showRent = !!p.rent && (p.rentOnly || (cm ? cm === "rent" : tab === "rent"));
-      var w = !!wished[p.id];
+      var w = wishlist.has(shop, p.id);
       var setCard = function (m) {
         return function () {
           var n = Object.assign({}, self.state.cardMode);
@@ -465,48 +470,103 @@ class Component extends React.Component {
         tag: tag,
         tagBg: tag === "Sale" ? "#C42A1C" : p.rent ? "#2F7A3C" : "#FFFFFF",
         tagFg: tag === "Sale" || p.rent ? "#FFFFFF" : "#111318",
-        cta: showRent ? "Rent" : "Add",
-        addLabel: (showRent ? "Rent " : "Add to cart: ") + p.name,
-        add: addToCart(showRent ? p.rent : p.buy),
+        href: productHref(p),
+        cta: busy[key] ? "…" : done[key] ? "Added" : showRent ? "Rent" : "Add",
+        addLabel: (showRent ? "Rent for 1 day from tomorrow: " : "Add to cart: ") + p.name,
+        add: addToCart(key, p, showRent ? "rent" : "buy"),
+        busy: !!busy[key],
+        err: errs[key] || "",
         heartFill: w ? "#E0522B" : "none",
         heartStroke: w ? "#E0522B" : "#111318",
         wishAria: w ? "true" : "false",
         wishLabel: (w ? "Remove from" : "Save to") + " wishlist: " + p.name,
         toggleWish: function () {
-          var n = Object.assign({}, self.state.wished);
-          n[p.id] = !n[p.id];
-          self.setState({ wished: n });
+          var n = Object.assign({}, self.state.errs);
+          delete n[key];
+          self.setState({ errs: n });
+          wishlist.toggle(p.id).catch(function (err) {
+            var e = Object.assign({}, self.state.errs);
+            e[key] = (err && err.message) || "Could not update your wishlist.";
+            self.setState({ errs: e });
+          });
         },
       });
     });
 
-    var calcId = s.calc || "tent";
+    var CALC = P.filter(function (p) {
+      return !!p.rent;
+    })
+      .slice()
+      .sort(function (a, b) {
+        var ia = CALC_ORDER.indexOf(a.kind),
+          ib = CALC_ORDER.indexOf(b.kind);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      })
+      .map(function (p) {
+        return {
+          id: p.id,
+          label: CALC_LABELS[p.kind] || p.name,
+          name: p.name,
+          kind: p.kind,
+          rate: p.rent,
+          buy: p.buy,
+          plans: p.plans || [],
+        };
+      });
+    var defCalc = byKind(CALC, "tent") || CALC[0];
+    var calcId = s.calc || (defCalc && defCalc.id);
     var c =
       CALC.filter(function (x) {
         return x.id === calcId;
-      })[0] || CALC[0];
+      })[0] || defCalc;
     var days = s.days || 4;
-    var rentTotal = c.rate * days;
-    var maxV = Math.max(rentTotal, c.buy);
-    var saves = c.buy - rentTotal;
-    var breakEven = Math.ceil(c.buy / c.rate);
-    var rentWins = saves > 0;
-    var calc = {
-      kind: c.kind,
-      name: c.name,
-      rateFmt: fmt(c.rate),
-      buyFmt: fmt(c.buy),
-      rentTotalFmt: fmt(rentTotal),
-      rentPct: Math.max(4, Math.round((rentTotal / maxV) * 100)) + "%",
-      buyPct: Math.max(4, Math.round((c.buy / maxV) * 100)) + "%",
-      verdict: rentWins ? "Renting saves you " + fmt(saves) : "Buying is the better deal",
-      verdictSub: rentWins ? "Buying only pays off after " + breakEven + " days." : "After " + breakEven + " days, owning it costs less.",
-      verdictBg: rentWins ? "#E4F2E6" : "#EAF3FA",
-      verdictFg: rentWins ? "#2F7A3C" : "#0D4F8B",
-      cta: rentWins ? "Rent it" : "Buy it",
-    };
+    var calc = null;
+    if (c) {
+      var rentTotal = rentalBasePrice(c.rate, c.plans, days);
+      var maxV = Math.max(rentTotal, c.buy);
+      var saves = c.buy - rentTotal;
+      var breakEven = Math.ceil(c.buy / c.rate);
+      for (var d = 1; d <= 365; d++) {
+        if (rentalBasePrice(c.rate, c.plans, d) >= c.buy) {
+          breakEven = d;
+          break;
+        }
+      }
+      var rentWins = saves > 0;
+      calc = {
+        kind: c.kind,
+        name: c.name,
+        href: "/product/" + c.id,
+        rateFmt: fmt(c.rate),
+        buyFmt: fmt(c.buy),
+        rentTotalFmt: fmt(rentTotal),
+        rentPct: Math.max(4, Math.round((rentTotal / maxV) * 100)) + "%",
+        buyPct: Math.max(4, Math.round((c.buy / maxV) * 100)) + "%",
+        verdict: rentWins ? "Renting saves you " + fmt(saves) : "Buying is the better deal",
+        verdictSub: rentWins ? "Buying only pays off after " + breakEven + " days." : "After " + breakEven + " days, owning it costs less.",
+        verdictBg: rentWins ? "#E4F2E6" : "#EAF3FA",
+        verdictFg: rentWins ? "#2F7A3C" : "#0D4F8B",
+        cta: rentWins ? "Rent it" : "Buy it",
+      };
+    }
+    if (!calc)
+      calc = {
+        kind: "camera",
+        name: "",
+        href: "/shop?mode=rent",
+        rateFmt: fmt(0),
+        buyFmt: fmt(0),
+        rentTotalFmt: fmt(0),
+        rentPct: "4%",
+        buyPct: "4%",
+        verdict: "",
+        verdictSub: "",
+        verdictBg: "#EAF3FA",
+        verdictFg: "#0D4F8B",
+        cta: "Browse rentals",
+      };
     var calcItems = CALC.map(function (x) {
-      var on = x.id === calcId;
+      var on = c && x.id === c.id;
       return {
         label: x.label,
         aria: on ? "true" : "false",
@@ -519,10 +579,6 @@ class Component extends React.Component {
       };
     });
 
-    var wishCount = Object.keys(wished).filter(function (k) {
-      return wished[k];
-    }).length;
-
     var slideIdx = s.slide || 0;
     var goTo = function (i) {
       return function () {
@@ -530,6 +586,18 @@ class Component extends React.Component {
         self.setState({ slide: (i + SLIDES.length) % SLIDES.length });
       };
     };
+    var baseSlide = SLIDES[slideIdx];
+    var chipP = byKind(P, baseSlide.chipKind);
+    var slide = Object.assign({}, baseSlide, {
+      chipHref: chipP ? productHref(chipP) : baseSlide.href1,
+      chipName: chipP && baseSlide.chipName === chipP.name ? chipP.name : baseSlide.chipName,
+      chipPrice:
+        chipP && baseSlide.chipName === chipP.name
+          ? baseSlide.chipRent && chipP.rent
+            ? fmt(chipP.rent) + " / day"
+            : fmt(chipP.buy)
+          : baseSlide.chipPrice,
+    });
     var dots = SLIDES.map(function (x, i) {
       var on = i === slideIdx;
       return {
@@ -544,6 +612,8 @@ class Component extends React.Component {
 
     var deptIdx = s.dept || 0;
     var menuOpen = !!s.menuOpen;
+    var deptDef = DEPTS[deptIdx];
+    var dept = Object.assign({}, deptDef, { href: deptHref(deptDef.shop) });
     var menuDepts = DEPTS.map(function (d, i) {
       var on = i === deptIdx;
       return {
@@ -565,12 +635,35 @@ class Component extends React.Component {
         items: b.items.map(function (l) {
           return { label: l };
         }),
-        add: addToCart(b.price),
+        add: function () {
+          var p =
+            [b.k1, b.k2]
+              .map(function (k) {
+                return byKind(P, k);
+              })
+              .filter(function (x) {
+                return x && x.rent;
+              })[0] || null;
+          navigate(p ? productHref(p) : "/shop?mode=rent");
+        },
       });
     });
 
+    var cats = (initial.categories || [])
+      .slice()
+      .sort(function (a, b) {
+        var ia = CAT_ORDER.indexOf(a.label),
+          ib = CAT_ORDER.indexOf(b.label);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      })
+      .slice(0, 8)
+      .map(function (c) {
+        return Object.assign({}, c, { href: deptHref(c.label) });
+      });
+    var camera = byKind(P, "camera");
+
     return {
-      slide: SLIDES[slideIdx],
+      slide: slide,
       slideNo: "0" + (slideIdx + 1),
       dots: dots,
       prevSlide: goTo(slideIdx - 1),
@@ -593,14 +686,18 @@ class Component extends React.Component {
         self.setState({ menuOpen: false });
       },
       menuDepts: menuDepts,
-      dept: DEPTS[deptIdx],
+      dept: dept,
       bundles: bundles,
       modes: modes,
       placeholder: mode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
       hh: pad(Math.floor(secs / 3600)),
       mm: pad(Math.floor((secs % 3600) / 60)),
       ss: pad(secs % 60),
-      cats: CATS,
+      cats: cats,
+      cameraHref: productHref(camera),
+      searchSubmit: function (e) {
+        submitSearch(e, mode);
+      },
       flash: flash,
       tabs: tabs,
       top: top,
@@ -611,15 +708,14 @@ class Component extends React.Component {
       onDays: function (e) {
         self.setState({ days: parseInt(e.target.value, 10) || 1 });
       },
-      wishCount: wishCount,
-      cartCount: s.cartCount || 0,
-      cartTotal: fmt(s.cartTotal || 0),
+      wishCount: hv.wishCount,
+      cartCount: hv.cartCount,
+      cartTotal: hv.cartTotal,
+      accountHref: hv.accountHref,
+      accountHello: hv.accountHello,
+      wishHref: hv.signedIn ? "/account?tab=wishlist" : "/signin?next=" + encodeURIComponent("/account?tab=wishlist"),
     };
   }
-}
-
-function preventSubmit(e) {
-  e.preventDefault();
 }
 
 const CSS =
@@ -728,9 +824,9 @@ export default class HomeScreen extends Component {
               <a href="#" style={{ color: "#E6F0F9" }}>
                 Sell or list with us
               </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/account" style={{ color: "#E6F0F9" }}>
                 Track order
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 Help
               </a>
@@ -811,7 +907,7 @@ export default class HomeScreen extends Component {
                 borderRadius: "16px",
                 background: "#FFFFFF",
               }}
-              onSubmit={preventSubmit}
+              onSubmit={vals.searchSubmit}
             >
               <div
                 role="group"
@@ -899,7 +995,7 @@ export default class HomeScreen extends Component {
                 Search
               </button>
             </form>
-            <Link href="/signin" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
+            <Link href={vals.accountHref} style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
               <span
                 style={{
                   width: "44px",
@@ -926,12 +1022,14 @@ export default class HomeScreen extends Component {
                 </svg>
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25" }}>
-                <span style={{ fontSize: "12px", color: "#5E6470" }}>Hello, sign in</span>
+                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                  {vals.accountHello}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: "600" }}>Account</span>
               </span>
             </Link>
-            <a
-              href="#"
+            <Link
+              href={vals.wishHref}
               aria-label={`Wishlist, ${vals.wishCount} saved`}
               style={{
                 position: "relative",
@@ -980,7 +1078,7 @@ export default class HomeScreen extends Component {
               >
                 {vals.wishCount}
               </span>
-            </a>
+            </Link>
             <Link
               href="/cart"
               style={{
@@ -1071,17 +1169,17 @@ export default class HomeScreen extends Component {
             }}
             data-sec="category-nav"
           >
-            <Link href="/shop">Electronics</Link>
-            <Link href="/shop">Phones</Link>
-            <Link href="/shop">{"Home & Living"}</Link>
-            <Link href="/shop">Kitchen</Link>
-            <Link href="/shop">Fashion</Link>
-            <Link href="/shop">Beauty</Link>
-            <Link href="/shop">{"Tools & DIY"}</Link>
-            <Link href="/shop">{"Baby & Kids"}</Link>
+            <Link href={deptHref("Electronics")}>Electronics</Link>
+            <Link href={deptHref("Phones")}>Phones</Link>
+            <Link href={deptHref("Home & Living")}>{"Home & Living"}</Link>
+            <Link href={deptHref("Kitchen")}>Kitchen</Link>
+            <Link href={deptHref("Fashion")}>Fashion</Link>
+            <Link href={deptHref("Beauty")}>Beauty</Link>
+            <Link href={deptHref("Tools & DIY")}>{"Tools & DIY"}</Link>
+            <Link href={deptHref("Baby & Kids")}>{"Baby & Kids"}</Link>
             <div style={{ flexGrow: "1" }} />
             <Link
-              href="/shop"
+              href="/shop?mode=rent"
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -1288,7 +1386,7 @@ export default class HomeScreen extends Component {
                     </svg>
                   </Link>
                   <Link
-                    href="/shop"
+                    href={vals.slide.href2}
                     className="btn-w"
                     style={{
                       height: "52px",
@@ -1441,7 +1539,7 @@ export default class HomeScreen extends Component {
                 <Render kind={vals.slide.k3} />
               </div>{" "}
               <Link
-                href="/product"
+                href={vals.slide.chipHref}
                 style={{
                   position: "absolute",
                   right: "36px",
@@ -1494,7 +1592,7 @@ export default class HomeScreen extends Component {
               </Link>{" "}
             </div>
             <Link
-              href="/shop"
+              href={deptHref("Events & Party")}
               className="lift"
               style={{
                 gridColumn: "span 4",
@@ -1879,7 +1977,7 @@ export default class HomeScreen extends Component {
               {(vals.cats || []).map((c, i0) => (
                 <Fragment key={i0}>
                   <Link
-                    href="/shop"
+                    href={c.href}
                     className="lift"
                     style={{
                       height: "212px",
@@ -2058,7 +2156,7 @@ export default class HomeScreen extends Component {
                       }}
                     >
                       <Link
-                        href="/product"
+                        href={p.href}
                         aria-label={p.name}
                         style={{
                           position: "relative",
@@ -2106,7 +2204,7 @@ export default class HomeScreen extends Component {
                           <span suppressHydrationWarning>{p.cat}</span>
                         </div>
                         <Link
-                          href="/product"
+                          href={p.href}
                           style={{ fontSize: "15px", fontWeight: "700", letterSpacing: "-0.01em" }}
                           suppressHydrationWarning
                         >
@@ -2135,6 +2233,7 @@ export default class HomeScreen extends Component {
                         type="button"
                         className="btn-y"
                         onClick={p.add}
+                        disabled={p.busy}
                         style={{
                           height: "44px",
                           margin: "0 4px",
@@ -2165,8 +2264,13 @@ export default class HomeScreen extends Component {
                           <path d="M5 8h14l-1.2 12H6.2L5 8z" />
                           <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
                         </svg>
-                        Add to cart
+                        {p.addText}
                       </button>
+                      {p.err ? (
+                        <span role="alert" style={{ fontSize: "12px", fontWeight: "500", color: "#C42A1C" }}>
+                          {p.err}
+                        </span>
+                      ) : null}
                     </article>
                   </Fragment>
                 ))}
@@ -2202,7 +2306,7 @@ export default class HomeScreen extends Component {
               data-rows="2"
             >
               <Link
-                href="/shop"
+                href={deptHref("Kitchen")}
                 className="lift"
                 style={{
                   gridColumn: "span 6",
@@ -2328,7 +2432,7 @@ export default class HomeScreen extends Component {
                 </div>{" "}
               </Link>
               <Link
-                href="/shop"
+                href={deptHref("Fashion")}
                 className="lift"
                 style={{
                   gridColumn: "span 6",
@@ -2393,7 +2497,7 @@ export default class HomeScreen extends Component {
                 </div>{" "}
               </Link>
               <Link
-                href="/product"
+                href={vals.cameraHref}
                 className="lift"
                 style={{
                   gridColumn: "span 6",
@@ -2654,7 +2758,7 @@ export default class HomeScreen extends Component {
                     </span>
                   </span>
                   <Link
-                    href="/product"
+                    href={vals.calc.href}
                     className="btn-t"
                     style={{
                       flexShrink: "0",
@@ -2702,7 +2806,7 @@ export default class HomeScreen extends Component {
                 </h2>
               </div>
               <Link
-                href="/shop"
+                href="/shop?mode=rent"
                 style={{
                   height: "48px",
                   padding: "0 20px",
@@ -2954,7 +3058,7 @@ export default class HomeScreen extends Component {
                     }}
                   >
                     <Link
-                      href="/product"
+                      href={p.href}
                       aria-label={p.name}
                       style={{
                         position: "relative",
@@ -3044,7 +3148,7 @@ export default class HomeScreen extends Component {
                         </span>
                       </div>
                       <Link
-                        href="/product"
+                        href={p.href}
                         style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                         suppressHydrationWarning
                       >
@@ -3126,6 +3230,7 @@ export default class HomeScreen extends Component {
                           type="button"
                           className="btn-t"
                           onClick={p.add}
+                          disabled={p.busy}
                           aria-label={p.addLabel}
                           style={{
                             height: "42px",
@@ -3145,6 +3250,11 @@ export default class HomeScreen extends Component {
                           {p.cta}
                         </button>
                       </div>
+                      {p.err ? (
+                        <span role="alert" style={{ fontSize: "12px", fontWeight: "500", color: "#C42A1C" }}>
+                          {p.err}
+                        </span>
+                      ) : null}
                     </div>
                   </article>
                 </Fragment>
@@ -3170,7 +3280,7 @@ export default class HomeScreen extends Component {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: "16px" }} data-cols="6">
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Nova" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3189,7 +3299,7 @@ export default class HomeScreen extends Component {
                 NOVA
               </Link>
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Aero" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3209,7 +3319,7 @@ export default class HomeScreen extends Component {
                 <span style={{ color: "#FF7A45" }}>.</span>
               </Link>
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Pulse" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3227,7 +3337,7 @@ export default class HomeScreen extends Component {
                 Pulse
               </Link>
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Lumen" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3248,7 +3358,7 @@ export default class HomeScreen extends Component {
                 LUMEN
               </Link>
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Casa Verde" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3265,7 +3375,7 @@ export default class HomeScreen extends Component {
                 casa verde
               </Link>
               <Link
-                href="/shop"
+                href={shopHref({ brand: "Orbit" })}
                 className="lift"
                 style={{
                   height: "104px",
@@ -3665,7 +3775,7 @@ export default class HomeScreen extends Component {
                       >
                         {vals.dept.name}
                       </h3>
-                      <Link href="/shop" style={{ fontSize: "14px", fontWeight: "600", color: "#1679BE" }}>
+                      <Link href={vals.dept.href} style={{ fontSize: "14px", fontWeight: "600", color: "#1679BE" }}>
                         Shop all
                       </Link>
                     </div>
@@ -3718,7 +3828,11 @@ export default class HomeScreen extends Component {
                           </span>
                           {(g.links || []).map((l, i1) => (
                             <Fragment key={i1}>
-                              <Link href="/shop" style={{ fontSize: "15px", fontWeight: "500", color: "#111318" }} suppressHydrationWarning>
+                              <Link
+                                href={vals.dept.href}
+                                style={{ fontSize: "15px", fontWeight: "500", color: "#111318" }}
+                                suppressHydrationWarning
+                              >
                                 {l.label}
                               </Link>
                             </Fragment>
@@ -3729,7 +3843,7 @@ export default class HomeScreen extends Component {
                   </div>
                 </div>
                 <Link
-                  href="/shop"
+                  href={vals.dept.href}
                   style={{
                     width: "300px",
                     flexShrink: "0",

@@ -4,25 +4,16 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist } from "@/lib/client/store";
+import { computeTotals, FREE_DELIVERY_THRESHOLD, DELIVERY_FEE } from "@/lib/pricing";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-var P = [
-  { id: "p1", name: "Lumen Z6 Camera", cat: "Electronics", kind: "camera", bg: "#E0F1FF", buy: 139000, rent: 2500, rating: "4.8" },
-  { id: "p2", name: "Pulse ANC Headphones", cat: "Electronics", kind: "headphones", bg: "#EEE8FF", buy: 18900, was: 23500, rating: "4.9" },
-  { id: "p4", name: "Orbit Watch 2", cat: "Wearables", kind: "watch", bg: "#FFEADB", buy: 21500, was: 26900, rating: "4.6" },
-  { id: "p5", name: "Linen 3-Seater Sofa", cat: "Home & Living", kind: "sofa", bg: "#F3EEE6", buy: 84900, rating: "4.7" },
-  { id: "p6", name: "Barista Espresso Machine", cat: "Kitchen", kind: "espresso", bg: "#FFF4C7", buy: 38500, was: 45000, rating: "4.6" },
-  { id: "p7", name: "Street Runner Sneakers", cat: "Fashion", kind: "sneaker", bg: "#FFE4EF", buy: 9800, was: 12400, rating: "4.5" },
-  { id: "p8", name: "Glow Skincare Duo", cat: "Beauty", kind: "skincare", bg: "#D9F3F0", buy: 4600, rating: "4.8" },
-];
-var RECS = ["p2", "p4", "p6", "p8"];
-// PLACEHOLDER: sample free-delivery threshold (ETB 100,000 on purchases after discounts). Replace with the store's real rule.
-var FREE_THRESHOLD = 100000;
-// PLACEHOLDER: sample delivery fee below the threshold. Replace with the real fee table.
-var DELIVERY_FEE = 500;
-var PROMO_CODE = "SIMBA10";
+var FREE_THRESHOLD = FREE_DELIVERY_THRESHOLD;
+var MAX_QTY = 20;
+var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function fmt(n) {
   return (
     "ETB " +
@@ -31,10 +22,21 @@ function fmt(n) {
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   );
 }
-function byId(id) {
-  return P.filter(function (p) {
-    return p.id === id;
-  })[0];
+// "2026-10-03" -> Date at UTC midnight (timezone-independent, same on server and client)
+function isoDate(s) {
+  return new Date(s + "T00:00:00Z");
+}
+function dayLabel(d) {
+  return DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()];
+}
+function rentalDates(l) {
+  if (!l.rentStart || !l.rentEnd) return "Dates to be confirmed";
+  var a = isoDate(l.rentStart);
+  var b = isoDate(l.rentEnd);
+  return dayLabel(a) + " – " + dayLabel(b) + " " + b.getUTCFullYear();
+}
+function deptHref(name) {
+  return "/shop?dept=" + encodeURIComponent(name);
 }
 
 class Component extends React.Component {
@@ -42,29 +44,40 @@ class Component extends React.Component {
     super(props);
     this.state = {
       mode: "buy",
-      // Sample cart shared across Cart / Checkout / Confirmation. Rental price is the quoted 3-day price.
-      rentals: [
-        { id: "r1", name: "Lumen Z6 Camera", kind: "camera", bg: "#E0F1FF", days: 3, dates: "Sat 3 Oct – Tue 6 Oct 2026", price: 6900 },
-      ],
-      buys: [
-        { id: "p5", qty: 1 },
-        { id: "p7", qty: 2 },
-      ],
-      saved: [],
       delivery: "deliver",
       promoInput: "",
-      promo: "",
       promoError: "",
-      wished: {},
+      promoBusy: false,
+      busy: {}, // line id -> true while an update is in flight
+      actionError: "",
+      recBusy: {}, // product id -> true while adding
+      recAdded: {}, // product id -> true for ~1.5s after adding
     };
+    this.timers = [];
+  }
+  componentDidMount() {
+    this.unsubShop = connectShop(this);
+  }
+  componentWillUnmount() {
+    this.unsubShop && this.unsubShop();
+    this.timers.forEach(clearTimeout);
   }
   renderVals() {
     var self = this;
     var s = this.state || {};
-    var rentalsS = s.rentals || [];
-    var buysS = s.buys || [];
-    var savedS = s.saved || [];
-    var wished = s.wished || {};
+    var initial = this.props.initial || {};
+    var shop = shopState(initial);
+    var hv = headerVals(shop);
+    var c = shop.cart || { lines: [], saved: [], promo: null, totals: null };
+    var lines = c.lines || [];
+    var savedL = c.saved || [];
+    var rentalsL = lines.filter(function (l) {
+      return l.mode === "rent";
+    });
+    var buysL = lines.filter(function (l) {
+      return l.mode === "buy";
+    });
+    var busy = s.busy || {};
 
     var mode = s.mode || "buy";
     var modes = [
@@ -83,130 +96,145 @@ class Component extends React.Component {
       };
     });
 
-    var setBuys = function (fn) {
-      self.setState({ buys: fn((self.state.buys || []).slice()) });
+    // Runs a cart action for one line, disabling its controls while pending and surfacing errors.
+    var act = function (lineId, fn) {
+      if ((self.state.busy || {})[lineId]) return;
+      self.setState(function (st) {
+        var b = Object.assign({}, st.busy);
+        b[lineId] = true;
+        return { busy: b, actionError: "" };
+      });
+      var done = function (err) {
+        self.setState(function (st) {
+          var b = Object.assign({}, st.busy);
+          delete b[lineId];
+          return { busy: b, actionError: err ? err.message : "" };
+        });
+      };
+      fn().then(
+        function () {
+          done(null);
+        },
+        function (err) {
+          done(err);
+        },
+      );
     };
 
-    var rentals = rentalsS.map(function (r) {
-      return Object.assign({}, r, {
-        priceFmt: fmt(r.price),
+    var rentals = rentalsL.map(function (l) {
+      var p = l.product;
+      return {
+        name: p.name,
+        kind: p.kind,
+        bg: p.bg,
+        href: "/product/" + p.id,
+        days: l.rentDays || 0,
+        dates: rentalDates(l),
+        priceFmt: fmt(l.lineTotal),
+        depositText: "Refundable deposit " + fmt(l.deposit) + " · held until it's back with us",
+        busy: !!busy[l.id],
         remove: function () {
-          self.setState({
-            rentals: (self.state.rentals || []).filter(function (x) {
-              return x.id !== r.id;
-            }),
+          act(l.id, function () {
+            return cart.remove(l.id);
           });
         },
-      });
+      };
     });
 
     var buyUnits = 0;
-    var buySub = 0;
-    var buys = buysS.map(function (b) {
-      var p = byId(b.id);
-      buyUnits += b.qty;
-      buySub += p.buy * b.qty;
+    var buys = buysL.map(function (l) {
+      var p = l.product;
+      var b = !!busy[l.id];
+      buyUnits += l.qty;
       return {
         name: p.name,
         cat: p.cat,
         kind: p.kind,
         bg: p.bg,
-        qty: b.qty,
-        unitFmt: fmt(p.buy),
-        lineFmt: fmt(p.buy * b.qty),
+        href: "/product/" + p.id,
+        qty: l.qty,
+        unitFmt: fmt(l.unitPrice),
+        lineFmt: fmt(l.lineTotal),
         hasWas: !!p.was,
         wasFmt: p.was ? fmt(p.was) : "",
         unitColor: p.was ? "#C42A1C" : "#3A3F4A",
-        decDisabled: b.qty <= 1,
-        decColor: b.qty <= 1 ? "#B4B8BF" : "#111318",
+        busy: b,
+        decDisabled: l.qty <= 1 || b,
+        incDisabled: l.qty >= MAX_QTY || b,
+        decColor: l.qty <= 1 ? "#B4B8BF" : "#111318",
         dec: function () {
-          setBuys(function (l) {
-            return l.map(function (x) {
-              return x.id === b.id ? { id: x.id, qty: Math.max(1, x.qty - 1) } : x;
-            });
+          if (l.qty <= 1) return;
+          act(l.id, function () {
+            return cart.update(l.id, { qty: l.qty - 1 });
           });
         },
         inc: function () {
-          setBuys(function (l) {
-            return l.map(function (x) {
-              return x.id === b.id ? { id: x.id, qty: Math.min(9, x.qty + 1) } : x;
-            });
+          if (l.qty >= MAX_QTY) return;
+          act(l.id, function () {
+            return cart.update(l.id, { qty: l.qty + 1 });
           });
         },
         remove: function () {
-          setBuys(function (l) {
-            return l.filter(function (x) {
-              return x.id !== b.id;
-            });
+          act(l.id, function () {
+            return cart.remove(l.id);
           });
         },
         save: function () {
-          var sv = (self.state.saved || [])
-            .filter(function (x) {
-              return x !== b.id;
-            })
-            .concat([b.id]);
-          self.setState({
-            saved: sv,
-            buys: (self.state.buys || []).filter(function (x) {
-              return x.id !== b.id;
-            }),
+          act(l.id, function () {
+            return cart.update(l.id, { savedForLater: true });
           });
         },
       };
     });
 
-    var saved = savedS.map(function (id) {
-      var p = byId(id);
+    var saved = savedL.map(function (l) {
+      var p = l.product;
       return {
         name: p.name,
         kind: p.kind,
         bg: p.bg,
-        unitFmt: fmt(p.buy),
+        unitFmt: l.mode === "rent" ? fmt(l.lineTotal) + " · rental" : fmt(l.unitPrice),
+        busy: !!busy[l.id],
         move: function () {
-          var l = (self.state.buys || []).slice();
-          if (
-            !l.some(function (x) {
-              return x.id === id;
-            })
-          )
-            l.push({ id: id, qty: 1 });
-          self.setState({
-            buys: l,
-            saved: (self.state.saved || []).filter(function (x) {
-              return x !== id;
-            }),
+          act(l.id, function () {
+            return cart.update(l.id, { savedForLater: false });
           });
         },
         drop: function () {
-          self.setState({
-            saved: (self.state.saved || []).filter(function (x) {
-              return x !== id;
-            }),
+          act(l.id, function () {
+            return cart.remove(l.id);
           });
         },
       };
     });
 
-    var rentSub = rentalsS.reduce(function (a, r) {
-      return a + r.price;
-    }, 0);
-    var promoOn = s.promo === PROMO_CODE && buySub > 0;
-    var discount = promoOn ? Math.round(buySub * 0.1) : 0;
-    var goods = buySub - discount;
-    var away = Math.max(0, FREE_THRESHOLD - goods);
-    var unlocked = buySub > 0 && away === 0;
     var pickup = s.delivery === "pickup";
-    var fee = pickup || unlocked || buySub === 0 ? 0 : DELIVERY_FEE;
-    var total = goods + rentSub + fee;
-    var pct = Math.min(100, Math.round((goods / FREE_THRESHOLD) * 100));
-    var lineCount = rentalsS.length + buysS.length;
+    var base = c.totals || { purchases: 0, rentals: 0, deposit: 0 };
+    var percentOff = c.promo ? c.promo.percentOff : 0;
+    var t = computeTotals({
+      purchases: base.purchases,
+      rentals: base.rentals,
+      deposit: base.deposit,
+      percentOff: percentOff,
+      pickup: pickup,
+    });
+    var deliverT = pickup
+      ? computeTotals({ purchases: base.purchases, rentals: base.rentals, deposit: base.deposit, percentOff: percentOff })
+      : t;
+    var buySub = t.purchases;
+    var goods = buySub - t.discount;
+    var away = t.freeDeliveryRemaining;
+    var unlocked = buySub > 0 && away === 0;
+    var fee = t.deliveryFee;
+    var pct = Math.min(100, Math.round((Math.max(0, goods) / FREE_THRESHOLD) * 100));
+    var lineCount = lines.length;
+    var hasAnything = lines.length + savedL.length > 0;
 
     var deliveryOpts = [
       {
         id: "deliver",
         title: "Deliver to me",
-        fee: unlocked || buySub === 0 ? "Free" : fmt(DELIVERY_FEE),
+        fee: deliverT.deliveryFee === 0 ? "Free" : fmt(DELIVERY_FEE),
         line1: "To [ADDRESS], [CITY]. Pick a delivery slot at checkout.",
         line2: "Same-day available before [TIME]",
       },
@@ -233,6 +261,7 @@ class Component extends React.Component {
     });
 
     var applyPromo = function () {
+      if (self.state.promoBusy) return;
       var code = String(self.state.promoInput || "")
         .trim()
         .toUpperCase();
@@ -240,81 +269,116 @@ class Component extends React.Component {
         self.setState({ promoError: "Enter a promo code first." });
         return;
       }
-      if (code === PROMO_CODE) {
-        self.setState({ promo: PROMO_CODE, promoError: "", promoInput: "" });
-        return;
-      }
-      self.setState({ promoError: '"' + code + '" is not a valid code. Check the spelling and try again.' });
+      self.setState({ promoBusy: true, promoError: "" });
+      cart.applyPromo(code).then(
+        function () {
+          self.setState({ promoBusy: false, promoError: "", promoInput: "" });
+        },
+        function (err) {
+          self.setState({ promoBusy: false, promoError: err.message });
+        },
+      );
     };
 
-    var recs = RECS.map(function (id) {
-      var p = byId(id);
-      var w = !!wished[id];
-      var inCart = buysS.some(function (x) {
-        return x.id === id;
-      });
+    var inCartIds = buysL.map(function (l) {
+      return l.product.id;
+    });
+    var recBusy = s.recBusy || {};
+    var recAdded = s.recAdded || {};
+    var recs = (initial.recommendations || []).map(function (p) {
+      var id = p.id;
+      var w = wishlist.has(shop, id);
+      var inCart = inCartIds.indexOf(id) >= 0;
+      var justAdded = !!recAdded[id];
       var tag = p.was ? "Sale" : "Buy";
       return {
         name: p.name,
         cat: p.cat,
         kind: p.kind,
         bg: p.bg,
+        href: "/product/" + id,
         rating: p.rating,
         tag: tag,
         tagBg: tag === "Sale" ? "#C42A1C" : "#FFFFFF",
         tagFg: tag === "Sale" ? "#FFFFFF" : "#111318",
         main: fmt(p.buy),
         sub: p.was ? "was " + fmt(p.was) : "Free delivery",
-        cta: inCart ? "Added" : "Add",
-        addBg: inCart ? "#2F7A3C" : "#0D4F8B",
+        cta: justAdded || inCart ? "Added" : "Add",
+        addBg: justAdded || inCart ? "#2F7A3C" : "#0D4F8B",
         addLabel: (inCart ? "Add another: " : "Add to cart: ") + p.name,
+        addDisabled: !!recBusy[id],
         add: function () {
-          var l = (self.state.buys || []).slice();
-          var found = false;
-          l = l.map(function (x) {
-            if (x.id === id) {
-              found = true;
-              return { id: id, qty: Math.min(9, x.qty + 1) };
-            }
-            return x;
-          });
-          if (!found) l.push({ id: id, qty: 1 });
-          self.setState({ buys: l });
+          if ((self.state.recBusy || {})[id]) return;
+          var setMap = function (key, val) {
+            self.setState(function (st) {
+              var m = Object.assign({}, st[key]);
+              if (val) m[id] = true;
+              else delete m[id];
+              var o = {};
+              o[key] = m;
+              return o;
+            });
+          };
+          setMap("recBusy", true);
+          self.setState({ actionError: "" });
+          cart.add({ productId: id, mode: "buy", qty: 1 }).then(
+            function () {
+              setMap("recBusy", false);
+              setMap("recAdded", true);
+              self.timers.push(
+                setTimeout(function () {
+                  setMap("recAdded", false);
+                }, 1500),
+              );
+            },
+            function (err) {
+              setMap("recBusy", false);
+              self.setState({ actionError: err.message });
+            },
+          );
         },
         heartFill: w ? "#E0522B" : "none",
         heartStroke: w ? "#E0522B" : "#111318",
         wishAria: w ? "true" : "false",
         wishLabel: (w ? "Remove from" : "Save to") + " wishlist: " + p.name,
         toggleWish: function () {
-          var n = Object.assign({}, self.state.wished);
-          n[id] = !n[id];
-          self.setState({ wished: n });
+          wishlist.toggle(id).catch(function (err) {
+            self.setState({ actionError: err.message });
+          });
         },
       };
     });
 
-    var rentDays = rentalsS.reduce(function (a, r) {
-      return a + r.days;
+    var rentDays = rentalsL.reduce(function (a, l) {
+      return a + (l.rentDays || 0);
     }, 0);
+    var checkoutHref = pickup ? "/checkout?fulfilment=pickup" : "/checkout";
+    var canCheckout = lineCount > 0;
 
     return {
       modes: modes,
       placeholder: mode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
-      wishCount: Object.keys(wished).filter(function (k) {
-        return wished[k];
-      }).length,
-      unitCount: buyUnits + rentalsS.length,
-      headerTotal: fmt(total),
+      onSearch: function (e) {
+        submitSearch(e, mode);
+      },
+      accountHref: hv.accountHref,
+      accountHello: hv.accountHello,
+      deptHref: deptHref,
+      wishCount: hv.wishCount,
+      unitCount: hv.cartCount,
+      headerTotal: hv.cartTotal,
       lineCount: lineCount,
-      isEmpty: lineCount === 0,
-      hasItems: lineCount > 0,
-      hasRentals: rentalsS.length > 0,
-      hasBuys: buysS.length > 0,
-      hasSaved: savedS.length > 0,
-      savedCount: savedS.length,
+      isEmpty: !hasAnything,
+      hasItems: hasAnything,
+      hasRentals: rentalsL.length > 0,
+      hasBuys: buysL.length > 0,
+      hasSaved: savedL.length > 0,
+      savedCount: savedL.length,
+      noLines: lineCount === 0,
       rentals: rentals,
       buys: buys,
       saved: saved,
+      actionError: s.actionError || "",
       freeMsg: unlocked ? "You have unlocked free delivery" : "You’re " + fmt(away) + " away from free delivery",
       freeSub: "Free delivery on purchases over " + fmt(FREE_THRESHOLD),
       freePct: pct + "%",
@@ -328,16 +392,29 @@ class Component extends React.Component {
         : "Rentals are always delivered and collected by us, whatever you choose for purchases.",
       buyUnits: buyUnits,
       buySubFmt: fmt(buySub),
-      promoOn: promoOn,
-      promoOff: !promoOn,
-      discountFmt: "−" + fmt(discount),
-      rentLabel: rentalsS.length + (rentalsS.length === 1 ? " item" : " items") + " · " + rentDays + " days",
-      rentSubFmt: fmt(rentSub),
+      promoOn: !!c.promo,
+      promoOff: !c.promo,
+      promoLabel: c.promo ? c.promo.code + " · " + c.promo.percentOff + "% off purchases" : "",
+      promoApplied: c.promo ? c.promo.code + " applied" : "",
+      discountFmt: "−" + fmt(t.discount),
+      rentLabel: rentalsL.length + (rentalsL.length === 1 ? " item" : " items") + " · " + rentDays + " days",
+      rentSubFmt: fmt(t.rentals),
       feeFmt: fee === 0 ? "Free" : fmt(fee),
       feeColor: fee === 0 ? "#2F7A3C" : "#111318",
-      totalFmt: fmt(total),
+      depositFmt: fmt(t.deposit),
+      depositNote: "+ " + fmt(t.deposit) + " refundable deposit",
+      totalFmt: fmt(t.total),
+      checkoutHref: canCheckout ? checkoutHref : "/cart",
+      checkoutDisabled: canCheckout ? undefined : "true",
+      checkoutOpacity: canCheckout ? undefined : "0.5",
+      onCheckout: function (e) {
+        e.preventDefault();
+        if (!canCheckout) return;
+        navigate(checkoutHref);
+      },
       promoInput: s.promoInput || "",
       promoError: s.promoError || "",
+      promoBusy: !!s.promoBusy,
       promoInvalid: s.promoError ? "true" : "false",
       promoBorder: s.promoError ? "#C42A1C" : "#E6E4DE",
       onPromo: function (e) {
@@ -351,15 +428,20 @@ class Component extends React.Component {
       },
       applyPromo: applyPromo,
       removePromo: function () {
-        self.setState({ promo: "" });
+        if (self.state.promoBusy) return;
+        self.setState({ promoBusy: true, promoError: "" });
+        cart.removePromo().then(
+          function () {
+            self.setState({ promoBusy: false });
+          },
+          function (err) {
+            self.setState({ promoBusy: false, actionError: err.message });
+          },
+        );
       },
       recs: recs,
     };
   }
-}
-
-function preventSubmit(e) {
-  e.preventDefault();
 }
 
 const CSS =
@@ -547,7 +629,7 @@ export default class CartScreen extends Component {
                 borderRadius: "16px",
                 background: "#FFFFFF",
               }}
-              onSubmit={preventSubmit}
+              onSubmit={vals.onSearch}
             >
               <div
                 role="group"
@@ -635,7 +717,7 @@ export default class CartScreen extends Component {
                 Search
               </button>
             </form>
-            <Link href="/account" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
+            <Link href={vals.accountHref} style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0", height: "52px" }}>
               <span
                 style={{
                   width: "44px",
@@ -662,12 +744,14 @@ export default class CartScreen extends Component {
                 </svg>
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25" }}>
-                <span style={{ fontSize: "12px", color: "#5E6470" }}>Hello, sign in</span>
+                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                  {vals.accountHello}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: "600" }}>Account</span>
               </span>
             </Link>
             <Link
-              href="/account"
+              href={vals.accountHref}
               aria-label={`Wishlist, ${vals.wishCount} saved`}
               style={{
                 position: "relative",
@@ -808,17 +892,17 @@ export default class CartScreen extends Component {
             }}
             data-sec="category-nav"
           >
-            <Link href="/shop">Electronics</Link>
-            <Link href="/shop">Phones</Link>
-            <Link href="/shop">{"Home & Living"}</Link>
-            <Link href="/shop">Kitchen</Link>
-            <Link href="/shop">Fashion</Link>
-            <Link href="/shop">Beauty</Link>
-            <Link href="/shop">{"Tools & DIY"}</Link>
-            <Link href="/shop">{"Baby & Kids"}</Link>
+            <Link href={vals.deptHref("Electronics")}>Electronics</Link>
+            <Link href={vals.deptHref("Phones")}>Phones</Link>
+            <Link href={vals.deptHref("Home & Living")}>{"Home & Living"}</Link>
+            <Link href={vals.deptHref("Kitchen")}>Kitchen</Link>
+            <Link href={vals.deptHref("Fashion")}>Fashion</Link>
+            <Link href={vals.deptHref("Beauty")}>Beauty</Link>
+            <Link href={vals.deptHref("Tools & DIY")}>{"Tools & DIY"}</Link>
+            <Link href={vals.deptHref("Baby & Kids")}>{"Baby & Kids"}</Link>
             <div style={{ flexGrow: "1" }} />
             <Link
-              href="/shop"
+              href="/shop?mode=rent"
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -995,7 +1079,7 @@ export default class CartScreen extends Component {
                     </p>
                     <div style={{ display: "flex", gap: "12px", paddingTop: "6px" }}>
                       <Link
-                        href="/"
+                        href="/shop"
                         className="btn-t"
                         style={{
                           height: "52px",
@@ -1026,7 +1110,7 @@ export default class CartScreen extends Component {
                         </svg>
                       </Link>
                       <Link
-                        href="/shop"
+                        href="/shop?mode=rent"
                         style={{
                           height: "52px",
                           boxSizing: "border-box",
@@ -1210,7 +1294,7 @@ export default class CartScreen extends Component {
                               }}
                             >
                               <Link
-                                href="/product"
+                                href={r.href}
                                 aria-label={r.name}
                                 style={{
                                   width: "120px",
@@ -1248,7 +1332,7 @@ export default class CartScreen extends Component {
                                   {" days"}
                                 </span>
                                 <Link
-                                  href="/product"
+                                  href={r.href}
                                   style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.015em" }}
                                   suppressHydrationWarning
                                 >
@@ -1282,7 +1366,7 @@ export default class CartScreen extends Component {
                                     {r.dates}
                                   </span>
                                   <Link
-                                    href="/product"
+                                    href={r.href}
                                     style={{
                                       height: "32px",
                                       display: "flex",
@@ -1296,9 +1380,7 @@ export default class CartScreen extends Component {
                                     Change dates
                                   </Link>
                                 </div>
-                                <span style={{ fontSize: "13px", color: "#5E6470" }}>
-                                  {"Refundable deposit ETB [X] · held until it's back with us"}
-                                </span>
+                                <span style={{ fontSize: "13px", color: "#5E6470" }}>{r.depositText}</span>
                               </div>
                               <div
                                 style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "10px", flexShrink: "0" }}
@@ -1314,6 +1396,7 @@ export default class CartScreen extends Component {
                                 <button
                                   type="button"
                                   onClick={r.remove}
+                                  disabled={r.busy}
                                   aria-label={`Remove ${r.name} rental`}
                                   className="ghost"
                                   style={{
@@ -1427,7 +1510,7 @@ export default class CartScreen extends Component {
                               }}
                             >
                               <Link
-                                href="/product"
+                                href={p.href}
                                 aria-label={p.name}
                                 style={{
                                   width: "120px",
@@ -1449,7 +1532,7 @@ export default class CartScreen extends Component {
                                   {p.cat}
                                 </span>
                                 <Link
-                                  href="/product"
+                                  href={p.href}
                                   style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "-0.015em" }}
                                   suppressHydrationWarning
                                 >
@@ -1490,6 +1573,7 @@ export default class CartScreen extends Component {
                                   <button
                                     type="button"
                                     onClick={p.save}
+                                    disabled={p.busy}
                                     className="ghost"
                                     style={{
                                       height: "44px",
@@ -1527,6 +1611,7 @@ export default class CartScreen extends Component {
                                   <button
                                     type="button"
                                     onClick={p.remove}
+                                    disabled={p.busy}
                                     aria-label={`Remove ${p.name}`}
                                     className="ghost"
                                     style={{
@@ -1627,6 +1712,7 @@ export default class CartScreen extends Component {
                                   <button
                                     type="button"
                                     onClick={p.inc}
+                                    disabled={p.incDisabled}
                                     aria-label="Increase quantity"
                                     className="ghost"
                                     style={{
@@ -1717,6 +1803,7 @@ export default class CartScreen extends Component {
                               <button
                                 type="button"
                                 onClick={sv.move}
+                                disabled={sv.busy}
                                 className="btn-t"
                                 style={{
                                   height: "44px",
@@ -1736,6 +1823,7 @@ export default class CartScreen extends Component {
                               <button
                                 type="button"
                                 onClick={sv.drop}
+                                disabled={sv.busy}
                                 aria-label={`Delete ${sv.name} from saved`}
                                 className="ghost"
                                 style={{
@@ -1769,6 +1857,11 @@ export default class CartScreen extends Component {
                         ))}
                       </div>
                     </>
+                  ) : null}
+                  {vals.actionError ? (
+                    <span role="alert" style={{ minHeight: "18px", fontSize: "13px", fontWeight: "500", color: "#C42A1C" }}>
+                      {vals.actionError}
+                    </span>
                   ) : null}
                   <div
                     style={{
@@ -1905,7 +1998,9 @@ export default class CartScreen extends Component {
                     {vals.promoOn ? (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                          <dt style={{ color: "#2F7A3C", fontWeight: "600" }}>SIMBA10 · 10% off purchases</dt>
+                          <dt style={{ color: "#2F7A3C", fontWeight: "600" }} suppressHydrationWarning>
+                            {vals.promoLabel}
+                          </dt>
                           <dd style={{ margin: "0", fontWeight: "700", color: "#2F7A3C" }} suppressHydrationWarning>
                             {vals.discountFmt}
                           </dd>
@@ -1945,7 +2040,9 @@ export default class CartScreen extends Component {
                           Rental
                         </span>
                       </dt>
-                      <dd style={{ margin: "0", fontWeight: "600" }}>ETB [X]</dd>
+                      <dd style={{ margin: "0", fontWeight: "600" }} suppressHydrationWarning>
+                        {vals.depositFmt}
+                      </dd>
                     </div>
                   </dl>
                   <div
@@ -1983,11 +2080,12 @@ export default class CartScreen extends Component {
                             >
                               <path d="M5 12l5 5 9-10" />
                             </svg>
-                            SIMBA10 applied
+                            {vals.promoApplied}
                           </span>
                           <button
                             type="button"
                             onClick={vals.removePromo}
+                            disabled={vals.promoBusy}
                             style={{
                               height: "44px",
                               padding: "0 10px",
@@ -2042,6 +2140,7 @@ export default class CartScreen extends Component {
                           <button
                             type="button"
                             onClick={vals.applyPromo}
+                            disabled={vals.promoBusy}
                             className="btn-t"
                             style={{
                               height: "48px",
@@ -2081,7 +2180,9 @@ export default class CartScreen extends Component {
                   >
                     <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <span style={{ fontSize: "16px", fontWeight: "700" }}>Total</span>
-                      <span style={{ fontSize: "12px", color: "#5E6470" }}>+ ETB [X] refundable deposit</span>
+                      <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                        {vals.depositNote}
+                      </span>
                     </span>
                     <span
                       aria-live="polite"
@@ -2097,7 +2198,9 @@ export default class CartScreen extends Component {
                     </span>
                   </div>
                   <Link
-                    href="/checkout"
+                    href={vals.checkoutHref}
+                    onClick={vals.onCheckout}
+                    aria-disabled={vals.checkoutDisabled}
                     className="btn-y"
                     style={{
                       height: "56px",
@@ -2110,6 +2213,7 @@ export default class CartScreen extends Component {
                       color: "#FFFFFF",
                       fontSize: "16px",
                       fontWeight: "700",
+                      opacity: vals.checkoutOpacity,
                     }}
                   >
                     <svg
@@ -2261,7 +2365,7 @@ export default class CartScreen extends Component {
                     }}
                   >
                     <Link
-                      href="/product"
+                      href={p.href}
                       aria-label={p.name}
                       style={{
                         position: "relative",
@@ -2351,7 +2455,7 @@ export default class CartScreen extends Component {
                         </span>
                       </div>
                       <Link
-                        href="/product"
+                        href={p.href}
                         style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                         suppressHydrationWarning
                       >
@@ -2372,6 +2476,7 @@ export default class CartScreen extends Component {
                           type="button"
                           className="btn-t"
                           onClick={p.add}
+                          disabled={p.addDisabled}
                           aria-label={p.addLabel}
                           style={{
                             height: "44px",

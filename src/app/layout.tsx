@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import MobileTabBar from "@/components/MobileTabBar";
+import RouterBridge from "@/components/RouterBridge";
 import "./fonts.css";
 import "./globals.css";
 import "./responsive.css";
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
       <body>
+        <RouterBridge />
         {children}
         <MobileTabBar />
       </body>

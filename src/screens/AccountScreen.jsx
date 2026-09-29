@@ -4,173 +4,31 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { shopState, connectShop, headerVals, submitSearch, navigate, cart, wishlist, auth, api } from "@/lib/client/store";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
 
-var P = {
-  p2: { name: "Pulse ANC Headphones", cat: "Electronics", kind: "headphones", bg: "#EEE8FF", buy: 18900, was: 23500 },
-  p3: { name: "Aero X Pro", cat: "Phones", kind: "phone", bg: "#DDF5EA", buy: 89500 },
-  p4: { name: "Orbit Watch 2", cat: "Wearables", kind: "watch", bg: "#FFEADB", buy: 21500, was: 26900 },
-  p5: { name: "Linen 3-Seater Sofa", cat: "Home & Living", kind: "sofa", bg: "#F3EEE6", buy: 84900 },
-  p6: { name: "Barista Espresso Machine", cat: "Kitchen", kind: "espresso", bg: "#FFF4C7", buy: 38500, was: 45000 },
-  p7: { name: "Street Runner Sneakers", cat: "Fashion", kind: "sneaker", bg: "#FFE4EF", buy: 9800, was: 12400 },
-  p8: { name: "Glow Skincare Duo", cat: "Beauty", kind: "skincare", bg: "#D9F3F0", buy: 4600 },
-  p11: { name: "Trail Mountain Bike", cat: "Sports", kind: "bike", bg: "#DDF5EA", buy: 65000, rent: 1200 },
-  p12: { name: "Stack & Learn Blocks", cat: "Baby & Kids", kind: "blocks", bg: "#E0F1FF", buy: 2900, was: 3600 },
-};
 var DAY = 86400000;
-var TODAY = new Date(2026, 9, 2);
+var TZ_OFFSET = 3 * 3600000; // Addis Ababa (UTC+3, no DST): day math and dates render the same on server and client
 var WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var WDL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 var MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var MOL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-var RENTALS = [
-  { id: "r1", name: "Lumen Z6 Camera", kind: "camera", bg: "#E0F1FF", rate: 2500, start: new Date(2026, 8, 29), end: new Date(2026, 9, 6) },
-  {
-    id: "r2",
-    name: "Canopy Tent 3 × 3 m",
-    kind: "tent",
-    bg: "#FFEADB",
-    rate: 3500,
-    start: new Date(2026, 9, 1),
-    end: new Date(2026, 9, 4),
-  },
-];
-var UPCOMING = [
-  {
-    name: "Garden party bundle",
-    kind: "tent",
-    k2: "headphones",
-    bg: "#E4F2E6",
-    cost: 6500 * 2,
-    dates: "Sat 10 Oct to Mon 12 Oct · 2 days",
-    costSub: "+ deposit ETB [X]",
-    note: "Delivery and set-up Sat 10 Oct, [TIME]",
-    pill: "Upcoming",
-    cta1: "Change dates",
-    cta2: "View booking",
-  },
-  {
-    name: "Trail Mountain Bike",
-    kind: "bike",
-    bg: "#DDF5EA",
-    cost: 1200 * 3,
-    dates: "Sat 17 Oct to Tue 20 Oct · 3 days",
-    costSub: "+ deposit ETB [X]",
-    note: "Delivery Sat 17 Oct, [TIME]",
-    pill: "Upcoming",
-    cta1: "Change dates",
-    cta2: "View booking",
-  },
-];
-var PAST = [
-  {
-    name: "Cordless Drill Kit",
-    kind: "drill",
-    bg: "#FFF4C7",
-    cost: 800 * 2,
-    dates: "Sat 5 Sep to Mon 7 Sep · 2 days",
-    costSub: "Deposit refunded",
-    note: "Collected 7 Sep · deposit refunded 8 Sep",
-    pill: "Returned",
-    cta1: "Leave a review",
-    cta2: "Rent again",
-  },
-  {
-    name: "Photoshoot kit",
-    kind: "camera",
-    k2: "phone",
-    bg: "#EAF3FA",
-    cost: 4200 * 1,
-    dates: "Sat 22 Aug · 1 day",
-    costSub: "Deposit refunded",
-    note: "Collected 23 Aug · deposit refunded 25 Aug",
-    pill: "Returned",
-    cta1: "Leave a review",
-    cta2: "Rent again",
-  },
-];
 var ST = {
   out: { label: "Out for delivery", bg: "#EAF3FA", fg: "#0D4F8B", dot: "#1679BE" },
   processing: { label: "Processing", bg: "#FFF0E0", fg: "#9A4A06", dot: "#F08A24" },
   delivered: { label: "Delivered", bg: "#E4F2E6", fg: "#2F7A3C", dot: "#418D4D" },
   cancelled: { label: "Cancelled", bg: "#FDECEA", fg: "#B02418", dot: "#C42A1C" },
 };
-function step(label, time, state) {
-  return { label: label, time: time, state: state };
-}
-var ORDERS = [
-  {
-    id: "o5",
-    no: "ST-[0005]",
-    date: "1 Oct 2026",
-    items: ["p2", "p4"],
-    status: "out",
-    headline: "Arriving today, [TIME WINDOW]",
-    steps: [
-      step("Ordered", "1 Oct, 09:12", "done"),
-      step("Packed", "1 Oct, 15:40", "done"),
-      step("Out for delivery", "2 Oct, 08:05", "current"),
-      step("Delivered", "Expected today", "todo"),
-    ],
-  },
-  {
-    id: "o4",
-    no: "ST-[0004]",
-    date: "30 Sep 2026",
-    items: ["p6"],
-    status: "processing",
-    headline: "Expected by Mon 5 Oct",
-    steps: [
-      step("Ordered", "30 Sep, 18:22", "done"),
-      step("Packing", "In progress", "current"),
-      step("Out for delivery", "Pending", "todo"),
-      step("Delivered", "Pending", "todo"),
-    ],
-  },
-  {
-    id: "o3",
-    no: "ST-[0003]",
-    date: "24 Sep 2026",
-    items: ["p7", "p8"],
-    status: "delivered",
-    headline: "Delivered Fri 25 Sep",
-    steps: [
-      step("Ordered", "24 Sep, 11:03", "done"),
-      step("Packed", "24 Sep, 16:10", "done"),
-      step("Out for delivery", "25 Sep, 08:30", "done"),
-      step("Delivered", "25 Sep, 13:47", "done"),
-    ],
-  },
-  {
-    id: "o2",
-    no: "ST-[0002]",
-    date: "12 Sep 2026",
-    items: ["p12"],
-    status: "delivered",
-    headline: "Delivered Sun 13 Sep",
-    steps: [
-      step("Ordered", "12 Sep, 20:15", "done"),
-      step("Packed", "13 Sep, 07:50", "done"),
-      step("Out for delivery", "13 Sep, 09:10", "done"),
-      step("Delivered", "13 Sep, 12:02", "done"),
-    ],
-  },
-  {
-    id: "o1",
-    no: "ST-[0001]",
-    date: "3 Sep 2026",
-    items: ["p3"],
-    status: "cancelled",
-    headline: "Cancelled at your request · refunded",
-    steps: [
-      step("Ordered", "3 Sep, 10:40", "done"),
-      step("Cancelled", "3 Sep, 11:02", "cancel"),
-      step("Refund issued", "4 Sep, 09:00", "done"),
-    ],
-  },
+var STATUS_KEY = { PLACED: "processing", PACKED: "processing", OUT_FOR_DELIVERY: "out", DELIVERED: "delivered", CANCELLED: "cancelled" };
+var TRACK = [
+  { status: "PLACED", label: "Ordered" },
+  { status: "PACKED", label: "Packed" },
+  { status: "OUT_FOR_DELIVERY", label: "Out for delivery" },
+  { status: "DELIVERED", label: "Delivered" },
 ];
+var METHOD = { telebirr: "Telebirr", card: "card", cod: "cash on delivery" };
 var ORDER_TABS = [
   {
     id: "all",
@@ -183,21 +41,21 @@ var ORDER_TABS = [
     id: "way",
     label: "On the way",
     test: function (o) {
-      return o.status === "out" || o.status === "processing";
+      return o.status === "PACKED" || o.status === "OUT_FOR_DELIVERY";
     },
   },
   {
     id: "delivered",
     label: "Delivered",
     test: function (o) {
-      return o.status === "delivered";
+      return o.status === "DELIVERED";
     },
   },
   {
     id: "cancelled",
     label: "Cancelled",
     test: function (o) {
-      return o.status === "cancelled";
+      return o.status === "CANCELLED";
     },
   },
 ];
@@ -208,6 +66,7 @@ var NOTIF = [
   { id: "remind", label: "Return reminders", sub: "A day before each rental ends" },
   { id: "deals", label: "Deals and offers", sub: "Members-only prices" },
 ];
+var EMPTY_ADDR = { label: "", line1: "", area: "", city: "", phone: "", notes: "", isDefault: false };
 function fmt(n) {
   return (
     "ETB " +
@@ -216,43 +75,194 @@ function fmt(n) {
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   );
 }
-function dFmt(d) {
-  return WD[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()];
+// Local (Addis) calendar day number of an ISO timestamp.
+function dayNo(iso) {
+  return Math.floor((Date.parse(iso) + TZ_OFFSET) / DAY);
 }
-function dShort(d) {
-  return d.getDate() + " " + MO[d.getMonth()];
+// A Date whose UTC fields are the local calendar day of `iso` (read with getUTC*).
+function local(iso) {
+  return new Date(Date.parse(iso) + TZ_OFFSET);
+}
+function dFmt(iso) {
+  var d = local(iso);
+  return WD[d.getUTCDay()] + " " + d.getUTCDate() + " " + MO[d.getUTCMonth()];
+}
+function dShort(iso) {
+  var d = local(iso);
+  return d.getUTCDate() + " " + MO[d.getUTCMonth()];
+}
+function dLong(iso) {
+  var d = local(iso);
+  return d.getUTCDate() + " " + MO[d.getUTCMonth()] + " " + d.getUTCFullYear();
+}
+function stamp(iso) {
+  var d = local(iso);
+  var hh = d.getUTCHours();
+  var mm = d.getUTCMinutes();
+  return dShort(iso) + ", " + (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
 }
 function plural(n, w) {
   return n + " " + w + (n === 1 ? "" : "s");
+}
+function errText(err) {
+  return (err && err.message) || "Something went wrong. Please try again.";
 }
 
 class Component extends React.Component {
   constructor(props) {
     super(props);
+    var init = props.initial || {};
+    var orders = init.orders || [];
     this.state = {
-      section: "overview",
+      section: NAV.indexOf(init.tab) >= 0 ? init.tab : "overview", // /account?tab=…
       mode: "buy",
-      ext: { r1: 0, r2: 0 },
       pickup: {},
       orderTab: "all",
-      openOrder: "o5",
+      openOrder: orders.length ? orders[0].id : null,
       rentTab: "active",
-      wish: ["p5", "p4", "p11", "p6"],
-      cartCount: 3,
-      cartTotal: 99700,
-      defaultAddr: "home",
       notif: { sms: true, email: true, remind: true, deals: false },
+      orders: orders,
+      addresses: init.addresses || [],
+      extBusy: null,
+      extError: null,
+      adding: {},
+      addErr: {},
+      addrEdit: null, // address id being edited, or "new"
+      addrForm: EMPTY_ADDR,
+      addrBusy: false,
+      addrError: "",
+      profileNote: "",
     };
+  }
+  componentDidMount() {
+    this.unsubShop = connectShop(this);
+  }
+  componentWillUnmount() {
+    this.unsubShop && this.unsubShop();
+    Object.keys(this.addT || {}).forEach((k) => clearTimeout(this.addT[k]));
+  }
+  extendItem(item) {
+    var self = this;
+    if (this.state.extBusy) return;
+    this.setState({ extBusy: item.id, extError: null });
+    api("POST", "/api/rentals/" + item.id + "/extend", { days: 1 })
+      .then(function (res) {
+        var charge = (res && res.charge) || 0;
+        var orders = self.state.orders.map(function (o) {
+          if (
+            !o.items.some(function (i) {
+              return i.id === item.id;
+            })
+          )
+            return o;
+          return Object.assign({}, o, {
+            totals: Object.assign({}, o.totals, { rentals: o.totals.rentals + charge, total: o.totals.total + charge }),
+            items: o.items.map(function (i) {
+              if (i.id !== item.id) return i;
+              return Object.assign({}, i, {
+                rentEnd: i.rentEnd ? new Date(Date.parse(i.rentEnd) + DAY).toISOString() : i.rentEnd,
+                rentDays: (i.rentDays || 0) + 1,
+                extendedDays: (i.extendedDays || 0) + 1,
+                extraCharge: (i.extraCharge || 0) + charge,
+              });
+            }),
+          });
+        });
+        self.setState({ orders: orders, extBusy: null });
+      })
+      .catch(function (err) {
+        self.setState({ extBusy: null, extError: { id: item.id, message: errText(err) } });
+      });
+  }
+  addToCart(p) {
+    var self = this;
+    if (this.state.adding[p.id]) return;
+    if (p.rentOnly) {
+      navigate("/product/" + p.id);
+      return;
+    }
+    var set = function (k, v, e) {
+      var adding = Object.assign({}, self.state.adding);
+      var addErr = Object.assign({}, self.state.addErr);
+      adding[k] = v;
+      addErr[k] = e || "";
+      self.setState({ adding: adding, addErr: addErr });
+    };
+    set(p.id, "pending");
+    cart
+      .add({ productId: p.id, mode: "buy", qty: 1 })
+      .then(function () {
+        set(p.id, "added");
+        self.addT = self.addT || {};
+        clearTimeout(self.addT[p.id]);
+        self.addT[p.id] = setTimeout(function () {
+          set(p.id, null);
+        }, 1500);
+      })
+      .catch(function (err) {
+        set(p.id, null, errText(err));
+      });
+  }
+  saveAddress() {
+    var self = this;
+    var s = this.state;
+    if (s.addrBusy) return;
+    var f = s.addrForm;
+    var body = {
+      label: f.label,
+      line1: f.line1,
+      area: f.area,
+      city: f.city,
+      phone: f.phone,
+      notes: f.notes || undefined,
+      isDefault: !!f.isDefault,
+    };
+    this.setState({ addrBusy: true, addrError: "" });
+    var req = s.addrEdit === "new" ? api("POST", "/api/addresses", body) : api("PATCH", "/api/addresses/" + s.addrEdit, body);
+    req
+      .then(function (res) {
+        self.setState({ addresses: res.addresses, addrBusy: false, addrEdit: null, addrForm: EMPTY_ADDR });
+      })
+      .catch(function (err) {
+        self.setState({ addrBusy: false, addrError: errText(err) });
+      });
+  }
+  addressAction(method, id, body) {
+    var self = this;
+    if (this.state.addrBusy) return;
+    this.setState({ addrBusy: true, addrError: "" });
+    api(method, "/api/addresses/" + id, body)
+      .then(function (res) {
+        self.setState({ addresses: res.addresses, addrBusy: false, addrEdit: null, addrForm: EMPTY_ADDR });
+      })
+      .catch(function (err) {
+        self.setState({ addrBusy: false, addrError: errText(err) });
+      });
   }
   renderVals() {
     var self = this;
     var s = this.state || {};
+    var init = this.props.initial || {};
+    var shop = shopState(init);
+    var hv = headerVals(shop);
+    var user = shop.user || init.user || { name: "", phone: null, email: null, createdAt: init.today };
+    var firstName = (user.name || "").trim().split(/\s+/)[0] || "there";
+    var today = dayNo(init.today);
     var set = function (o) {
       return function () {
         self.setState(o);
       };
     };
     var section = s.section || "overview";
+
+    var products = init.products || [];
+    var byName = {};
+    products.forEach(function (p) {
+      byName[p.name] = p;
+    });
+    var hrefOf = function (name) {
+      return byName[name] ? "/product/" + byName[name].id : "/shop";
+    };
 
     var is = {};
     var nv = {};
@@ -282,43 +292,67 @@ class Component extends React.Component {
       };
     });
 
-    // Rentals
-    var ext = s.ext || {};
+    // Rentals (items with mode "rent" on orders that weren't cancelled)
+    var orders = s.orders || [];
+    var rentalItems = [];
+    orders.forEach(function (o) {
+      if (o.status === "CANCELLED") return;
+      o.items.forEach(function (i) {
+        if (i.mode === "rent" && i.rentStart && i.rentEnd) rentalItems.push({ item: i, order: o });
+      });
+    });
     var pickup = s.pickup || {};
-    var active = RENTALS.map(function (r) {
-      var e = ext[r.id] || 0;
-      var end = new Date(r.end.getTime() + e * DAY);
-      var total = Math.round((end - r.start) / DAY);
-      var left = Math.max(0, Math.round((end - TODAY) / DAY));
-      var elapsed = total - left;
+    var decorateRental = function (x) {
+      var r = x.item;
+      var p = byName[r.name];
+      var rate = (p && p.rent) || (r.extendedDays ? Math.round((r.extraCharge || 0) / r.extendedDays) : 0);
+      var start = dayNo(r.rentStart);
+      var end = dayNo(r.rentEnd);
+      var total = Math.max(1, end - start);
+      var started = today >= start;
+      var left = Math.max(0, end - today);
+      var elapsed = started ? Math.min(total, Math.max(1, today - start + 1)) : 0;
       var pctNum = Math.round((elapsed / total) * 100);
       var booked = !!pickup[r.id];
+      var busy = s.extBusy === r.id;
+      var err = s.extError && s.extError.id === r.id ? s.extError.message : "";
       return {
         id: r.id,
+        orderId: x.order.id,
         name: r.name,
         kind: r.kind,
         bg: r.bg,
+        href: hrefOf(r.name),
         end: end,
-        rateFmt: fmt(r.rate),
-        startFmt: dFmt(r.start),
-        endFmt: dFmt(end),
-        endShort: dShort(end),
+        startDay: start,
+        started: started,
+        status: r.rentalStatus,
+        rateFmt: rate ? fmt(rate) : "day rate",
+        startFmt: dFmt(r.rentStart),
+        endFmt: dFmt(r.rentEnd),
+        endShort: dShort(r.rentEnd),
         total: total,
         elapsed: elapsed,
         pct: pctNum + "%",
         pctNum: pctNum,
-        leftLabel: left === 0 ? "Due today" : plural(left, "day") + " left",
+        leftLabel: !started ? "Starts " + dShort(r.rentStart) : left === 0 ? "Due today" : plural(left, "day") + " left",
         leftFg: left <= 2 ? "#9A4A06" : "#2F7A3C",
-        extended: e > 0,
-        extLabel: plural(e, "day"),
-        extraFmt: fmt(e * r.rate),
-        costFmt: fmt(total * r.rate),
+        extended: (r.extendedDays || 0) > 0 || !!err,
+        extLabel: plural(r.extendedDays || 0, "day"),
+        extraFmt: fmt(r.extraCharge || 0),
+        extMsg: err ? err : "Extended by " + plural(r.extendedDays || 0, "day") + " · " + fmt(r.extraCharge || 0) + " added to your bill",
+        cost: r.lineTotal + (r.extraCharge || 0),
+        costFmt: fmt(r.lineTotal + (r.extraCharge || 0)),
+        deposit: r.deposit || 0,
+        depositFmt: fmt(r.deposit || 0),
         booked: booked,
         notBooked: !booked,
+        busy: busy,
+        extendText: busy ? "Extending… · " : "Extend +1 day · ",
+        extendShort: busy ? "Extending…" : "Extend +1 day",
+        window: x.order.deliveryWindow,
         extend: function () {
-          var n = Object.assign({}, self.state.ext);
-          n[r.id] = (n[r.id] || 0) + 1;
-          self.setState({ ext: n });
+          self.extendItem(r);
         },
         togglePickup: function () {
           var n = Object.assign({}, self.state.pickup);
@@ -326,86 +360,157 @@ class Component extends React.Component {
           self.setState({ pickup: n });
         },
       };
-    });
-    var nextEnd = active.slice().sort(function (a, b) {
+    };
+    var rentals = rentalItems.map(decorateRental);
+    var byEnd = function (a, b) {
       return a.end - b.end;
-    })[0];
+    };
+    // Overview: everything not yet returned (scheduled or active).
+    var current = rentals
+      .filter(function (r) {
+        return r.status === "scheduled" || r.status === "active";
+      })
+      .sort(byEnd);
+    // Rentals tab: active = started, upcoming = not started yet, past = returned.
+    var active = current.filter(function (r) {
+      return r.status === "active" || r.started;
+    });
+    var upcoming = current
+      .filter(function (r) {
+        return r.status !== "active" && !r.started;
+      })
+      .sort(function (a, b) {
+        return a.startDay - b.startDay;
+      });
+    var past = rentals
+      .filter(function (r) {
+        return r.status === "returned";
+      })
+      .sort(function (a, b) {
+        return b.end - a.end;
+      });
+    var nextEnd = current[0];
+    var depositsHeld = current.reduce(function (t, r) {
+      return t + r.deposit;
+    }, 0);
 
     // Orders
-    var thumbsOf = function (o) {
-      return o.items.map(function (id) {
-        return { kind: P[id].kind, bg: P[id].bg, name: P[id].name };
-      });
-    };
-    var totalOf = function (o) {
-      return o.items.reduce(function (t, id) {
-        return t + P[id].buy;
-      }, 0);
-    };
     var openOrder = s.openOrder;
     var orderTab = s.orderTab || "all";
     var decorate = function (o) {
       var open = o.id === openOrder;
+      var at = {};
+      (o.events || []).forEach(function (e) {
+        at[e.status] = e.at;
+      });
+      var cancelled = o.status === "CANCELLED";
+      var raw;
+      if (cancelled) {
+        raw = [{ label: "Ordered", time: stamp(o.createdAt), state: "done" }];
+        raw.push({ label: "Cancelled", time: at.CANCELLED ? stamp(at.CANCELLED) : "", state: "cancel" });
+        if (o.payment.status === "refunded") raw.push({ label: "Refund issued", time: "Refunded", state: "done" });
+      } else {
+        var reached = o.step || 0;
+        raw = TRACK.map(function (t, i) {
+          var state = i <= reached ? "done" : i === reached + 1 ? "current" : "todo";
+          var time = at[t.status]
+            ? stamp(at[t.status])
+            : state === "current"
+              ? "In progress"
+              : i === 3 && o.deliveryDate
+                ? "Expected " + dFmt(o.deliveryDate)
+                : "Pending";
+          return { label: i === 1 && state === "current" ? "Packing" : t.label, time: time, state: state };
+        });
+      }
       var lastDone = -1;
-      o.steps.forEach(function (x, i) {
+      raw.forEach(function (x, i) {
         if (x.state !== "todo") lastDone = i;
       });
-      var steps = o.steps.map(function (x, i) {
+      var steps = raw.map(function (x, i) {
         var done = x.state === "done";
         var cancel = x.state === "cancel";
-        var current = x.state === "current";
+        var cur = x.state === "current";
         var col = cancel ? "#C42A1C" : "#0D4F8B";
         return {
           label: x.label,
           time: x.time,
           done: done || cancel,
           dotBg: done || cancel ? col : "#FFFFFF",
-          dotBorder: done || cancel ? col : current ? "#1679BE" : "#C9C6BE",
-          ring: current ? "0 0 0 5px rgba(22,121,190,0.18)" : "none",
-          lineBg: i === o.steps.length - 1 ? "transparent" : i < lastDone ? "#0D4F8B" : "#D9D6CE",
+          dotBorder: done || cancel ? col : cur ? "#1679BE" : "#C9C6BE",
+          ring: cur ? "0 0 0 5px rgba(22,121,190,0.18)" : "none",
+          lineBg: i === raw.length - 1 ? "transparent" : i < lastDone ? "#0D4F8B" : "#D9D6CE",
           labelFg: x.state === "todo" ? "#5E6470" : cancel ? "#B02418" : "#111318",
         };
       });
+      var key = STATUS_KEY[o.status] || "processing";
+      var pickupOrder = o.fulfilment === "pickup";
+      var slot = o.deliveryDate ? dFmt(o.deliveryDate) + (o.deliveryWindow ? ", " + o.deliveryWindow : "") : "";
+      var headline =
+        key === "cancelled"
+          ? "Cancelled" + (o.payment.status === "refunded" ? " · refunded" : "")
+          : key === "delivered"
+            ? (pickupOrder ? "Collected " : "Delivered ") + dFmt(at.DELIVERED || o.createdAt)
+            : key === "out"
+              ? "Arriving " + (slot || "soon")
+              : pickupOrder
+                ? "Ready for pickup " + (slot || "soon")
+                : slot
+                  ? "Expected by " + dFmt(o.deliveryDate)
+                  : "Being packed";
       var n = o.items.length;
+      var first = o.items[0];
+      var inProgress = key === "out" || key === "processing";
       return {
         id: o.id,
-        no: o.no,
-        date: o.date,
-        st: ST[o.status],
-        thumbs: thumbsOf(o),
+        no: o.number,
+        date: dLong(o.createdAt),
+        st: ST[key],
+        thumbs: o.items.map(function (i) {
+          return { kind: i.kind, bg: i.bg, name: i.name };
+        }),
         itemCount: plural(n, "item"),
         names: o.items
-          .map(function (id) {
-            return P[id].name;
+          .map(function (i) {
+            return i.name;
           })
           .join(", "),
-        totalFmt: fmt(totalOf(o)),
+        totalFmt: fmt(o.totals.total),
         open: open,
         aria: open ? "true" : "false",
         chev: open ? "rotate(180deg)" : "none",
         border: open ? "#BFD8EE" : "#EFEDE8",
-        headline: o.headline,
+        headline: headline,
+        trackingNo: "Tracking no. " + o.number,
+        where:
+          (o.address ? o.address.line1 + ", " + o.address.city : "Pick up in store") +
+          " · " +
+          (o.payment.status === "paid" ? "Paid with " : "Paying with ") +
+          (METHOD[o.payment.method] || o.payment.method),
         steps: steps,
-        cta: o.status === "delivered" || o.status === "cancelled" ? "Buy again" : "View items",
-        trackText: o.status === "out" || o.status === "processing" ? "Track" : "Details",
-        trackLabel: (o.status === "out" || o.status === "processing" ? "Track order " : "Order details ") + o.no,
+        cta: key === "delivered" || key === "cancelled" ? "Buy again" : "View items",
+        ctaHref: key === "delivered" || key === "cancelled" ? (first ? hrefOf(first.name) : "/shop") : "/order-confirmed/" + o.id,
+        trackText: inProgress ? "Track" : "Details",
+        trackLabel: (inProgress ? "Track order " : "Order details ") + o.number,
         toggle: function () {
           self.setState({ openOrder: self.state.openOrder === o.id ? null : o.id });
         },
-        track: set({ section: "orders", orderTab: "all", openOrder: o.id }),
+        track: function () {
+          navigate("/order-confirmed/" + o.id);
+        },
       };
     };
-    var recent = ORDERS.slice(0, 4).map(decorate);
+    var recent = orders.slice(0, 4).map(decorate);
     var tabDef =
       ORDER_TABS.filter(function (t) {
         return t.id === orderTab;
       })[0] || ORDER_TABS[0];
-    var orderList = ORDERS.filter(tabDef.test).map(decorate);
+    var orderList = orders.filter(tabDef.test).map(decorate);
     var orderTabs = ORDER_TABS.map(function (t) {
       var on = t.id === orderTab;
       return {
         label: t.label,
-        count: ORDERS.filter(t.test).length,
+        count: orders.filter(t.test).length,
         aria: on ? "true" : "false",
         bg: on ? "#FFFFFF" : "transparent",
         fg: on ? "#111318" : "#5E6470",
@@ -415,17 +520,17 @@ class Component extends React.Component {
         pick: set({ orderTab: t.id }),
       };
     });
-    var onTheWay = ORDERS.filter(ORDER_TABS[1].test).length;
-    var outToday = ORDERS.filter(function (o) {
-      return o.status === "out";
+    var onTheWay = orders.filter(ORDER_TABS[1].test).length;
+    var outToday = orders.filter(function (o) {
+      return o.status === "OUT_FOR_DELIVERY";
     }).length;
 
     // Rental tabs
     var rentTab = s.rentTab || "active";
     var rentDefs = [
       { id: "active", label: "Active", count: active.length },
-      { id: "upcoming", label: "Upcoming", count: UPCOMING.length },
-      { id: "past", label: "Past", count: PAST.length },
+      { id: "upcoming", label: "Upcoming", count: upcoming.length },
+      { id: "past", label: "Past", count: past.length },
     ];
     var rentTabs = rentDefs.map(function (t) {
       var on = t.id === rentTab;
@@ -441,60 +546,135 @@ class Component extends React.Component {
         pick: set({ rentTab: t.id }),
       };
     });
-    var rentOther = (rentTab === "past" ? PAST : UPCOMING).map(function (r) {
-      var up = rentTab !== "past";
-      return Object.assign({}, r, {
-        costFmt: fmt(r.cost),
-        hasK2: !!r.k2,
-        k2: r.k2 || r.kind,
-        pillFg: up ? "#0D4F8B" : "#3A3F4A",
-        pillDot: up ? "#1679BE" : "#8A8F99",
-      });
+    var isPast = rentTab === "past";
+    var rentOther = (isPast ? past : upcoming).map(function (r) {
+      return {
+        name: r.name,
+        kind: r.kind,
+        bg: r.bg,
+        hasK2: false,
+        k2: r.kind,
+        costFmt: r.costFmt,
+        dates: r.startFmt + " to " + r.endFmt + " · " + plural(r.total, "day"),
+        costSub: isPast ? "Deposit refunded" : "+ deposit " + r.depositFmt,
+        note: isPast ? "Returned " + r.endShort + " · deposit refunded" : "Delivery " + r.startFmt + (r.window ? ", " + r.window : ""),
+        pill: isPast ? "Returned" : "Upcoming",
+        cta1: isPast ? "Leave a review" : "Change dates",
+        cta2: isPast ? "Rent again" : "View booking",
+        href1: isPast ? r.href : "/order-confirmed/" + r.orderId,
+        href2: isPast ? r.href : "/order-confirmed/" + r.orderId,
+        pillFg: isPast ? "#3A3F4A" : "#0D4F8B",
+        pillDot: isPast ? "#8A8F99" : "#1679BE",
+      };
     });
 
+    // Deposit refunds: returned rentals are refunded, everything else is held.
+    var deposits = rentals
+      .filter(function (r) {
+        return r.deposit > 0;
+      })
+      .slice(0, 4)
+      .map(function (r) {
+        var refunded = r.status === "returned";
+        return {
+          name: r.name,
+          kind: r.kind,
+          bg: r.bg,
+          sub: (refunded ? "Returned " + r.endShort + " · refunded" : "Refund after inspection on return") + " · " + r.depositFmt,
+          badge: refunded ? "Refunded" : "Held",
+          badgeBg: refunded ? "#E4F2E6" : "#FFF4C7",
+          badgeFg: refunded ? "#2F7A3C" : "#7A5700",
+        };
+      });
+
     // Wishlist
-    var wish = s.wish || [];
-    var addToCart = function (amount) {
-      return function () {
-        self.setState({ cartCount: (self.state.cartCount || 0) + 1, cartTotal: (self.state.cartTotal || 0) + amount });
-      };
-    };
-    var wishList = wish.map(function (id) {
-      var p = P[id];
+    var wish = shop.wishlist || [];
+    var wishProducts = wish
+      .map(function (id) {
+        return products.filter(function (p) {
+          return p.id === id;
+        })[0];
+      })
+      .filter(Boolean);
+    var wishList = wishProducts.map(function (p) {
+      var st = s.adding[p.id];
+      var err = s.addErr[p.id];
       return {
         name: p.name,
         cat: p.cat,
         kind: p.kind,
         bg: p.bg,
+        href: "/product/" + p.id,
         onSale: !!p.was,
-        priceFmt: fmt(p.buy),
+        priceFmt: p.rentOnly && p.rent ? fmt(p.rent) + "/day" : fmt(p.buy),
         priceFg: p.was ? "#C42A1C" : "#111318",
-        sub: p.was ? "was " + fmt(p.was) : p.rent ? "or rent " + fmt(p.rent) + "/day" : "Free delivery",
-        add: addToCart(p.buy),
+        sub: err ? err : p.was ? "was " + fmt(p.was) : p.rent ? "or rent " + fmt(p.rent) + "/day" : "Free delivery",
+        addLabel: st === "pending" ? "Adding…" : st === "added" ? "Added" : p.rentOnly ? "Rent" : "Add",
+        busy: st === "pending",
+        add: function () {
+          self.addToCart(p);
+        },
         remove: function () {
-          self.setState({
-            wish: self.state.wish.filter(function (x) {
-              return x !== id;
-            }),
-          });
+          wishlist.toggle(p.id).catch(function () {});
         },
       };
     });
 
     // Addresses
-    var def = s.defaultAddr || "home";
-    var addresses = [
-      { id: "home", label: "Home", lines: "[Name]\n[STREET ADDRESS]\n[AREA], [CITY]\n[PHONE]" },
-      { id: "work", label: "Work", lines: "[Name]\n[BUILDING], [FLOOR]\n[AREA], [CITY]\n[PHONE]" },
-    ].map(function (a) {
-      var d = a.id === def;
-      return Object.assign({}, a, {
+    var editing = s.addrEdit;
+    var form = s.addrForm || EMPTY_ADDR;
+    var field = function (k) {
+      return function (e) {
+        var f = Object.assign({}, self.state.addrForm);
+        f[k] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+        self.setState({ addrForm: f, addrError: "" });
+      };
+    };
+    var addrForm = {
+      label: form.label,
+      line1: form.line1,
+      area: form.area,
+      city: form.city,
+      phone: form.phone,
+      notes: form.notes || "",
+      isDefault: !!form.isDefault,
+      on: field,
+      error: s.addrError || "",
+      busy: !!s.addrBusy,
+      saveLabel: s.addrBusy ? "Saving…" : "Save address",
+      save: function (e) {
+        if (e) e.preventDefault();
+        self.saveAddress();
+      },
+      cancel: set({ addrEdit: null, addrForm: EMPTY_ADDR, addrError: "" }),
+    };
+    var addresses = (s.addresses || []).map(function (a) {
+      var d = !!a.isDefault;
+      return {
+        id: a.id,
+        label: a.label,
+        lines: [user.name, a.line1, a.area + ", " + a.city, a.phone].concat(a.notes ? [a.notes] : []).join("\n"),
         isDefault: d,
         notDefault: !d,
         border: d ? "#1679BE" : "#EFEDE8",
-        makeDefault: set({ defaultAddr: a.id }),
-      });
+        editing: editing === a.id,
+        viewing: editing !== a.id,
+        edit: set({
+          addrEdit: a.id,
+          addrError: "",
+          addrForm: { label: a.label, line1: a.line1, area: a.area, city: a.city, phone: a.phone, notes: a.notes || "", isDefault: d },
+        }),
+        makeDefault: function () {
+          self.addressAction("PATCH", a.id, { isDefault: true });
+        },
+        remove: function () {
+          self.addressAction("DELETE", a.id);
+        },
+      };
     });
+    var defaultAddr = (s.addresses || []).filter(function (a) {
+      return a.isDefault;
+    })[0];
 
     // Settings
     var nstate = s.notif || {};
@@ -514,15 +694,42 @@ class Component extends React.Component {
       };
     });
 
+    var td = local(init.today);
     return {
       is: is,
       nv: nv,
       modes: modes,
+      search: function (e) {
+        submitSearch(e, self.state.mode);
+      },
       placeholder: mode === "rent" ? 'What do you need to rent? Try "party tent" or "camera"' : "Search phones, sofas, sneakers and more",
-      todayLabel: WDL[TODAY.getDay()] + ", " + TODAY.getDate() + " " + MOL[TODAY.getMonth()],
-      active: active,
-      activeCount: active.length,
-      nextReturn: nextEnd ? dFmt(nextEnd.end) : "none",
+      userName: user.name,
+      firstName: firstName,
+      initials: hv.userInitials,
+      memberSince: "Member since " + local(user.createdAt || init.today).getUTCFullYear(),
+      userPhone: user.phone || "",
+      userEmail: user.email || "",
+      telebirrPhone: user.phone || "Not added",
+      refundTo: user.phone ? "To Telebirr " + user.phone : "To your payment method",
+      signOut: function (e) {
+        if (e) e.preventDefault();
+        auth
+          .signOut()
+          .then(function () {
+            navigate("/");
+          })
+          .catch(function () {
+            navigate("/");
+          });
+      },
+      todayLabel: WDL[td.getUTCDay()] + ", " + td.getUTCDate() + " " + MOL[td.getUTCMonth()],
+      active: current,
+      noActive: current.length === 0,
+      rentActive: active,
+      noRentActive: active.length === 0,
+      activeCount: current.length,
+      nextReturn: nextEnd ? nextEnd.endFmt : "none",
+      depositsHeldFmt: fmt(depositsHeld),
       onTheWay: onTheWay,
       outToday: outToday,
       recent: recent,
@@ -533,19 +740,128 @@ class Component extends React.Component {
       rentTabs: rentTabs,
       rt: { active: rentTab === "active", other: rentTab !== "active" },
       rentOther: rentOther,
+      noRentOther: rentTab !== "active" && rentOther.length === 0,
+      deposits: deposits,
+      noDeposits: deposits.length === 0,
       wishList: wishList,
-      wishCount: wish.length,
-      noWish: wish.length === 0,
-      wishOnSale: wish.filter(function (id) {
-        return !!P[id].was;
+      wishCount: hv.wishCount,
+      noWish: wishList.length === 0,
+      wishOnSale: wishProducts.filter(function (p) {
+        return !!p.was;
       }).length,
       goWish: set({ section: "wishlist" }),
       addresses: addresses,
+      addrForm: addrForm,
+      addingAddr: editing === "new",
+      notAddingAddr: editing !== "new",
+      addrListError: editing ? "" : s.addrError || "",
+      newAddress: set({
+        addrEdit: "new",
+        addrError: "",
+        addrForm: Object.assign({}, EMPTY_ADDR, { phone: user.phone || "", city: defaultAddr ? defaultAddr.city : "" }),
+      }),
+      profileNote: s.profileNote || "",
+      saveProfile: set({ profileNote: "Profile changes can't be saved online yet. Contact support to update your details." }),
       notif: notif,
-      cartCount: s.cartCount || 0,
-      cartTotal: fmt(s.cartTotal || 0),
+      cartCount: hv.cartCount,
+      cartTotal: hv.cartTotal,
     };
   }
+}
+
+var FIELD = {
+  height: "50px",
+  boxSizing: "border-box",
+  padding: "0 16px",
+  border: "1px solid #E6E4DE",
+  borderRadius: "14px",
+  font: "inherit",
+  fontSize: "15px",
+  color: "#111318",
+};
+var FIELD_LABEL = { display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: "600" };
+
+// Inline add/edit form for an address card (reuses the Settings form field styles).
+function AddressForm({ f, idp }) {
+  return (
+    <form onSubmit={f.save} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <label htmlFor={idp + "-label"} style={FIELD_LABEL}>
+        Label
+        <input id={idp + "-label"} type="text" placeholder="Home, Work…" value={f.label} onChange={f.on("label")} style={FIELD} />
+      </label>
+      <label htmlFor={idp + "-line1"} style={FIELD_LABEL}>
+        Street and house
+        <input id={idp + "-line1"} type="text" value={f.line1} onChange={f.on("line1")} style={FIELD} />
+      </label>
+      <label htmlFor={idp + "-area"} style={FIELD_LABEL}>
+        Area / sub-city
+        <input id={idp + "-area"} type="text" value={f.area} onChange={f.on("area")} style={FIELD} />
+      </label>
+      <label htmlFor={idp + "-city"} style={FIELD_LABEL}>
+        City
+        <input id={idp + "-city"} type="text" value={f.city} onChange={f.on("city")} style={FIELD} />
+      </label>
+      <label htmlFor={idp + "-phone"} style={FIELD_LABEL}>
+        Phone
+        <input id={idp + "-phone"} type="tel" placeholder="09XX XXX XXX" value={f.phone} onChange={f.on("phone")} style={FIELD} />
+      </label>
+      <label htmlFor={idp + "-notes"} style={FIELD_LABEL}>
+        Notes for the driver
+        <input id={idp + "-notes"} type="text" value={f.notes} onChange={f.on("notes")} style={FIELD} />
+      </label>
+      <label
+        htmlFor={idp + "-default"}
+        style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: "#3A3F4A", cursor: "pointer" }}
+      >
+        <input id={idp + "-default"} type="checkbox" checked={f.isDefault} onChange={f.on("isDefault")} />
+        Use as my default address
+      </label>
+      {f.error ? (
+        <span role="alert" style={{ fontSize: "12px", color: "#B02418" }}>
+          {f.error}
+        </span>
+      ) : null}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          type="submit"
+          className="btn-y"
+          disabled={f.busy}
+          style={{
+            height: "44px",
+            padding: "0 14px",
+            border: "none",
+            borderRadius: "12px",
+            background: "#2F7A3C",
+            color: "#FFFFFF",
+            font: "inherit",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer",
+          }}
+        >
+          {f.saveLabel}
+        </button>
+        <button
+          type="button"
+          onClick={f.cancel}
+          style={{
+            height: "44px",
+            padding: "0 14px",
+            border: "none",
+            borderRadius: "12px",
+            background: "transparent",
+            font: "inherit",
+            fontSize: "13px",
+            fontWeight: "700",
+            color: "#0D4F8B",
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function preventSubmit(e) {
@@ -658,9 +974,9 @@ export default class AccountScreen extends Component {
               <a href="#" style={{ color: "#E6F0F9" }}>
                 Sell or list with us
               </a>
-              <a href="#" style={{ color: "#E6F0F9" }}>
+              <Link href="/account" style={{ color: "#E6F0F9" }}>
                 Track order
-              </a>
+              </Link>
               <a href="#" style={{ color: "#E6F0F9" }}>
                 Help
               </a>
@@ -737,7 +1053,7 @@ export default class AccountScreen extends Component {
                 borderRadius: "16px",
                 background: "#FFFFFF",
               }}
-              onSubmit={preventSubmit}
+              onSubmit={vals.search}
             >
               <div
                 role="group"
@@ -843,11 +1159,14 @@ export default class AccountScreen extends Component {
                   fontSize: "13px",
                   fontWeight: "700",
                 }}
+                suppressHydrationWarning
               >
-                [N]
+                {vals.initials}
               </span>
               <span style={{ display: "flex", flexDirection: "column", lineHeight: "1.25" }}>
-                <span style={{ fontSize: "12px", color: "#5E6470" }}>Hi, [Name]</span>
+                <span style={{ fontSize: "12px", color: "#5E6470" }} suppressHydrationWarning>
+                  {"Hi, " + vals.firstName}
+                </span>
                 <span style={{ fontSize: "14px", fontWeight: "600" }}>Account</span>
               </span>
             </Link>
@@ -997,17 +1316,17 @@ export default class AccountScreen extends Component {
             }}
             data-sec="category-nav"
           >
-            <Link href="/shop">Electronics</Link>
-            <Link href="/shop">Phones</Link>
-            <Link href="/shop">{"Home & Living"}</Link>
-            <Link href="/shop">Kitchen</Link>
-            <Link href="/shop">Fashion</Link>
-            <Link href="/shop">Beauty</Link>
-            <Link href="/shop">{"Tools & DIY"}</Link>
-            <Link href="/shop">{"Baby & Kids"}</Link>
+            <Link href="/shop?dept=Electronics">Electronics</Link>
+            <Link href="/shop?dept=Phones">Phones</Link>
+            <Link href="/shop?dept=Home%20%26%20Living">{"Home & Living"}</Link>
+            <Link href="/shop?dept=Kitchen">Kitchen</Link>
+            <Link href="/shop?dept=Fashion">Fashion</Link>
+            <Link href="/shop?dept=Beauty">Beauty</Link>
+            <Link href="/shop?dept=Tools%20%26%20DIY">{"Tools & DIY"}</Link>
+            <Link href="/shop?dept=Baby%20%26%20Kids">{"Baby & Kids"}</Link>
             <div style={{ flexGrow: "1" }} />
             <Link
-              href="/shop"
+              href="/shop?mode=rent"
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -1094,8 +1413,9 @@ export default class AccountScreen extends Component {
                       fontWeight: "700",
                       boxShadow: "0 0 0 4px #EAF3FA",
                     }}
+                    suppressHydrationWarning
                   >
-                    [N]
+                    {vals.initials}
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                     <span
@@ -1105,10 +1425,11 @@ export default class AccountScreen extends Component {
                         fontWeight: "700",
                         letterSpacing: "-0.03em",
                       }}
+                      suppressHydrationWarning
                     >
-                      [Name]
+                      {vals.userName}
                     </span>
-                    <span style={{ fontSize: "13px", color: "#5E6470" }}>Member since [YEAR]</span>
+                    <span style={{ fontSize: "13px", color: "#5E6470" }}>{vals.memberSince}</span>
                   </span>
                 </div>
                 <nav
@@ -1418,7 +1739,8 @@ export default class AccountScreen extends Component {
                     <span style={{ flexGrow: "1" }}>Settings</span>
                   </button>
                   <Link
-                    href="/signin"
+                    href="/"
+                    onClick={vals.signOut}
                     style={{
                       height: "48px",
                       marginTop: "8px",
@@ -1536,7 +1858,7 @@ export default class AccountScreen extends Component {
                           letterSpacing: "-0.045em",
                         }}
                       >
-                        {"Welcome back, [Name]. "}
+                        {"Welcome back, " + vals.firstName + ". "}
                         <span
                           style={{
                             fontFamily: "'Instrument Serif', serif",
@@ -1778,8 +2100,9 @@ export default class AccountScreen extends Component {
                             fontWeight: "700",
                             letterSpacing: "-0.04em",
                           }}
+                          suppressHydrationWarning
                         >
-                          ETB [X]
+                          {vals.depositsHeldFmt}
                         </span>
                         <span style={{ fontSize: "13px", color: "#3A3F4A" }} suppressHydrationWarning>
                           {"Across "}
@@ -1933,7 +2256,7 @@ export default class AccountScreen extends Component {
                           >
                             <div style={{ display: "flex", gap: "18px" }}>
                               <Link
-                                href="/product"
+                                href={r.href}
                                 aria-label={r.name}
                                 style={{
                                   width: "136px",
@@ -1973,7 +2296,7 @@ export default class AccountScreen extends Component {
                                   {" / day"}
                                 </span>
                                 <Link
-                                  href="/product"
+                                  href={r.href}
                                   style={{ fontSize: "19px", fontWeight: "700", letterSpacing: "-0.02em" }}
                                   suppressHydrationWarning
                                 >
@@ -1986,7 +2309,7 @@ export default class AccountScreen extends Component {
                                   </strong>
                                 </span>
                                 <span style={{ fontSize: "13px", color: "#5E6470" }} suppressHydrationWarning>
-                                  {"Deposit ETB [X] · "}
+                                  {"Deposit " + r.depositFmt + " · "}
                                   {r.startFmt}
                                   {" start"}
                                 </span>
@@ -2025,11 +2348,7 @@ export default class AccountScreen extends Component {
                               {r.extended ? (
                                 <>
                                   <span style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600" }} suppressHydrationWarning>
-                                    {"Extended by "}
-                                    {r.extLabel}
-                                    {" · "}
-                                    {r.extraFmt}
-                                    {" added to your bill"}
+                                    {r.extMsg}
                                   </span>
                                 </>
                               ) : null}
@@ -2039,6 +2358,7 @@ export default class AccountScreen extends Component {
                                 type="button"
                                 className="btn-og"
                                 onClick={r.extend}
+                                disabled={r.busy}
                                 aria-label={`Extend ${r.name} by one day`}
                                 style={{
                                   flex: "1",
@@ -2070,7 +2390,7 @@ export default class AccountScreen extends Component {
                                 >
                                   <path d="M12 5v14M5 12h14" />
                                 </svg>
-                                {"Extend +1 day · "}
+                                {r.extendText}
                                 {r.rateFmt}
                               </button>
                               {r.notBooked ? (
@@ -2162,6 +2482,27 @@ export default class AccountScreen extends Component {
                         </Fragment>
                       ))}
                     </div>
+                    {vals.noActive ? (
+                      <>
+                        <div
+                          style={{
+                            height: "200px",
+                            border: "1.5px dashed #E6E4DE",
+                            borderRadius: "24px",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            color: "#5E6470",
+                            fontSize: "15px",
+                          }}
+                        >
+                          <span style={{ fontSize: "17px", fontWeight: "700", color: "#111318" }}>No active rentals</span>
+                          Rentals you book will show up here.
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                   <div
                     style={{ border: "1px solid #EFEDE8", borderRadius: "28px", overflow: "hidden", background: "#FFFFFF" }}
@@ -2369,120 +2710,53 @@ export default class AccountScreen extends Component {
                         >
                           Deposit refunds
                         </h2>
-                        <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>To Telebirr [PHONE]</span>
+                        <span style={{ fontSize: "12px", fontWeight: "600", color: "#5E6470" }}>{vals.refundTo}</span>
                       </div>
                       <ul style={{ margin: "0", padding: "0", listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
-                        <li style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              flexShrink: "0",
-                              borderRadius: "12px",
-                              background: "#FFF4C7",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <span style={{ display: "block", zoom: "0.18", width: "200px", height: "200px" }}>
-                              <Render kind={"drill"} />
-                            </span>
-                          </span>
-                          <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: "700" }}>Cordless Drill Kit</span>
-                            <span style={{ fontSize: "12px", color: "#5E6470" }}>Returned 7 Sep · refunded 8 Sep</span>
-                          </span>
-                          <span
-                            style={{
-                              height: "26px",
-                              padding: "0 10px",
-                              display: "flex",
-                              alignItems: "center",
-                              borderRadius: "999px",
-                              background: "#E4F2E6",
-                              color: "#2F7A3C",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                            }}
-                          >
-                            Refunded
-                          </span>
-                        </li>
-                        <li style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              flexShrink: "0",
-                              borderRadius: "12px",
-                              background: "#FFEADB",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <span style={{ display: "block", zoom: "0.18", width: "200px", height: "200px" }}>
-                              <Render kind={"tent"} />
-                            </span>
-                          </span>
-                          <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: "700" }}>Canopy Tent 3 × 3 m</span>
-                            <span style={{ fontSize: "12px", color: "#5E6470" }}>Refund after inspection on return</span>
-                          </span>
-                          <span
-                            style={{
-                              height: "26px",
-                              padding: "0 10px",
-                              display: "flex",
-                              alignItems: "center",
-                              borderRadius: "999px",
-                              background: "#FFF4C7",
-                              color: "#7A5700",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                            }}
-                          >
-                            Held
-                          </span>
-                        </li>
-                        <li style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              flexShrink: "0",
-                              borderRadius: "12px",
-                              background: "#E0F1FF",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <span style={{ display: "block", zoom: "0.18", width: "200px", height: "200px" }}>
-                              <Render kind={"camera"} />
-                            </span>
-                          </span>
-                          <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "14px", fontWeight: "700" }}>Lumen Z6 Camera</span>
-                            <span style={{ fontSize: "12px", color: "#5E6470" }}>Refund after inspection on return</span>
-                          </span>
-                          <span
-                            style={{
-                              height: "26px",
-                              padding: "0 10px",
-                              display: "flex",
-                              alignItems: "center",
-                              borderRadius: "999px",
-                              background: "#FFF4C7",
-                              color: "#7A5700",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                            }}
-                          >
-                            Held
-                          </span>
-                        </li>
+                        {(vals.deposits || []).map((d, i0) => (
+                          <Fragment key={i0}>
+                            <li style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                              <span
+                                style={{
+                                  width: "40px",
+                                  height: "40px",
+                                  flexShrink: "0",
+                                  borderRadius: "12px",
+                                  background: d.bg,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <span style={{ display: "block", zoom: "0.18", width: "200px", height: "200px" }}>
+                                  <Render kind={d.kind} />
+                                </span>
+                              </span>
+                              <span style={{ flexGrow: "1", display: "flex", flexDirection: "column", gap: "2px" }}>
+                                <span style={{ fontSize: "14px", fontWeight: "700" }}>{d.name}</span>
+                                <span style={{ fontSize: "12px", color: "#5E6470" }}>{d.sub}</span>
+                              </span>
+                              <span
+                                style={{
+                                  height: "26px",
+                                  padding: "0 10px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  borderRadius: "999px",
+                                  background: d.badgeBg,
+                                  color: d.badgeFg,
+                                  fontSize: "12px",
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {d.badge}
+                              </span>
+                            </li>
+                          </Fragment>
+                        ))}
+                        {vals.noDeposits ? (
+                          <li style={{ fontSize: "12px", color: "#5E6470" }}>No deposits yet. Deposits on rentals show up here.</li>
+                        ) : null}
                       </ul>
                       <span style={{ fontSize: "12px", lineHeight: "1.5", color: "#5E6470" }}>
                         Deposits are returned within [N] working days of the item passing inspection.
@@ -2834,7 +3108,7 @@ export default class AccountScreen extends Component {
                                   <span style={{ fontSize: "15px", fontWeight: "700" }} suppressHydrationWarning>
                                     {o.headline}
                                   </span>
-                                  <span style={{ fontSize: "13px", color: "#5E6470" }}>Tracking no. [TRACKING]</span>
+                                  <span style={{ fontSize: "13px", color: "#5E6470" }}>{o.trackingNo}</span>
                                 </div>
                                 <ol
                                   aria-label={`Tracking timeline for ${o.no}`}
@@ -2933,7 +3207,7 @@ export default class AccountScreen extends Component {
                                       <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
                                       <circle cx="12" cy="9.5" r="2.5" />
                                     </svg>
-                                    [DELIVERY ADDRESS], [CITY] · Paid with Telebirr
+                                    {o.where}
                                   </span>
                                   <div style={{ display: "flex", gap: "10px" }}>
                                     <a
@@ -2953,7 +3227,7 @@ export default class AccountScreen extends Component {
                                       Get help
                                     </a>
                                     <Link
-                                      href="/product"
+                                      href={o.ctaHref}
                                       className="btn-t"
                                       style={{
                                         height: "44px",
@@ -3088,7 +3362,7 @@ export default class AccountScreen extends Component {
                   {vals.rt.active ? (
                     <>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "20px" }} data-cols="2">
-                        {(vals.active || []).map((r, i0) => (
+                        {(vals.rentActive || []).map((r, i0) => (
                           <Fragment key={i0}>
                             <article
                               style={{
@@ -3168,7 +3442,7 @@ export default class AccountScreen extends Component {
                               >
                                 <span style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                                   <Link
-                                    href="/product"
+                                    href={r.href}
                                     style={{ fontSize: "19px", fontWeight: "700", letterSpacing: "-0.02em" }}
                                     suppressHydrationWarning
                                   >
@@ -3187,7 +3461,7 @@ export default class AccountScreen extends Component {
                                   <span style={{ fontSize: "17px", fontWeight: "700" }} suppressHydrationWarning>
                                     {r.costFmt}
                                   </span>
-                                  <span style={{ fontSize: "12px", color: "#5E6470" }}>+ deposit ETB [X]</span>
+                                  <span style={{ fontSize: "12px", color: "#5E6470" }}>{"+ deposit " + r.depositFmt}</span>
                                 </span>
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 4px" }}>
@@ -3224,11 +3498,7 @@ export default class AccountScreen extends Component {
                                 {r.extended ? (
                                   <>
                                     <span style={{ fontSize: "13px", color: "#2F7A3C", fontWeight: "600" }} suppressHydrationWarning>
-                                      {"Extended by "}
-                                      {r.extLabel}
-                                      {" · "}
-                                      {r.extraFmt}
-                                      {" added to your bill"}
+                                      {r.extMsg}
                                     </span>
                                   </>
                                 ) : null}
@@ -3238,6 +3508,7 @@ export default class AccountScreen extends Component {
                                   type="button"
                                   className="btn-og"
                                   onClick={r.extend}
+                                  disabled={r.busy}
                                   aria-label={`Extend ${r.name} by one day`}
                                   style={{
                                     flex: "1",
@@ -3268,7 +3539,7 @@ export default class AccountScreen extends Component {
                                   >
                                     <path d="M12 5v14M5 12h14" />
                                   </svg>
-                                  Extend +1 day
+                                  {r.extendShort}
                                 </button>
                                 {r.notBooked ? (
                                   <>
@@ -3340,6 +3611,27 @@ export default class AccountScreen extends Component {
                           </Fragment>
                         ))}
                       </div>
+                      {vals.noRentActive ? (
+                        <>
+                          <div
+                            style={{
+                              height: "200px",
+                              border: "1.5px dashed #E6E4DE",
+                              borderRadius: "24px",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "8px",
+                              color: "#5E6470",
+                              fontSize: "15px",
+                            }}
+                          >
+                            <span style={{ fontSize: "17px", fontWeight: "700", color: "#111318" }}>Nothing here yet</span>
+                            Rentals in this state will show up here.
+                          </div>
+                        </>
+                      ) : null}
                     </>
                   ) : null}
                   {vals.rt.other ? (
@@ -3470,7 +3762,7 @@ export default class AccountScreen extends Component {
                               </div>
                               <div style={{ display: "flex", gap: "10px" }}>
                                 <Link
-                                  href="/product"
+                                  href={r.href1}
                                   className="btn-og"
                                   style={{
                                     flex: "1",
@@ -3490,7 +3782,7 @@ export default class AccountScreen extends Component {
                                   {r.cta1}
                                 </Link>
                                 <Link
-                                  href="/product"
+                                  href={r.href2}
                                   className="btn-y"
                                   style={{
                                     flex: "1",
@@ -3513,6 +3805,27 @@ export default class AccountScreen extends Component {
                           </Fragment>
                         ))}
                       </div>
+                      {vals.noRentOther ? (
+                        <>
+                          <div
+                            style={{
+                              height: "200px",
+                              border: "1.5px dashed #E6E4DE",
+                              borderRadius: "24px",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "8px",
+                              color: "#5E6470",
+                              fontSize: "15px",
+                            }}
+                          >
+                            <span style={{ fontSize: "17px", fontWeight: "700", color: "#111318" }}>Nothing here yet</span>
+                            Rentals in this state will show up here.
+                          </div>
+                        </>
+                      ) : null}
                     </>
                   ) : null}
                   <div
@@ -3623,7 +3936,7 @@ export default class AccountScreen extends Component {
                             }}
                           >
                             <Link
-                              href="/product"
+                              href={p.href}
                               aria-label={p.name}
                               style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                             >
@@ -3694,7 +4007,7 @@ export default class AccountScreen extends Component {
                               {p.cat}
                             </span>
                             <Link
-                              href="/product"
+                              href={p.href}
                               style={{ fontSize: "17px", fontWeight: "700", letterSpacing: "-0.015em" }}
                               suppressHydrationWarning
                             >
@@ -3721,6 +4034,7 @@ export default class AccountScreen extends Component {
                                 type="button"
                                 className="btn-t"
                                 onClick={p.add}
+                                disabled={p.busy}
                                 aria-label={`Add to cart: ${p.name}`}
                                 style={{
                                   height: "44px",
@@ -3735,7 +4049,7 @@ export default class AccountScreen extends Component {
                                   cursor: "pointer",
                                 }}
                               >
-                                Add
+                                {p.addLabel}
                               </button>
                             </div>
                           </div>
@@ -3819,60 +4133,84 @@ export default class AccountScreen extends Component {
                             background: "#FFFFFF",
                           }}
                         >
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span style={{ fontSize: "16px", fontWeight: "700" }} suppressHydrationWarning>
-                              {a.label}
-                            </span>
-                            {a.isDefault ? (
-                              <>
-                                <span
-                                  style={{
-                                    height: "26px",
-                                    padding: "0 10px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    borderRadius: "999px",
-                                    background: "#EAF3FA",
-                                    color: "#0D4F8B",
-                                    fontSize: "12px",
-                                    fontWeight: "700",
-                                  }}
-                                >
-                                  Default
+                          {a.viewing ? (
+                            <>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span style={{ fontSize: "16px", fontWeight: "700" }} suppressHydrationWarning>
+                                  {a.label}
                                 </span>
-                              </>
-                            ) : null}
-                          </div>
-                          <span
-                            style={{ fontSize: "14px", lineHeight: "1.6", color: "#3A3F4A", whiteSpace: "pre-line" }}
-                            suppressHydrationWarning
-                          >
-                            {a.lines}
-                          </span>
-                          <div style={{ flexGrow: "1" }} />
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <button
-                              type="button"
-                              style={{
-                                height: "44px",
-                                padding: "0 14px",
-                                border: "1px solid #E6E4DE",
-                                borderRadius: "12px",
-                                background: "#FFFFFF",
-                                font: "inherit",
-                                fontSize: "13px",
-                                fontWeight: "700",
-                                color: "#111318",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Edit
-                            </button>
-                            {a.notDefault ? (
-                              <>
+                                {a.isDefault ? (
+                                  <>
+                                    <span
+                                      style={{
+                                        height: "26px",
+                                        padding: "0 10px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        borderRadius: "999px",
+                                        background: "#EAF3FA",
+                                        color: "#0D4F8B",
+                                        fontSize: "12px",
+                                        fontWeight: "700",
+                                      }}
+                                    >
+                                      Default
+                                    </span>
+                                  </>
+                                ) : null}
+                              </div>
+                              <span
+                                style={{ fontSize: "14px", lineHeight: "1.6", color: "#3A3F4A", whiteSpace: "pre-line" }}
+                                suppressHydrationWarning
+                              >
+                                {a.lines}
+                              </span>
+                              <div style={{ flexGrow: "1" }} />
+                              <div style={{ display: "flex", gap: "8px" }}>
                                 <button
                                   type="button"
-                                  onClick={a.makeDefault}
+                                  onClick={a.edit}
+                                  style={{
+                                    height: "44px",
+                                    padding: "0 14px",
+                                    border: "1px solid #E6E4DE",
+                                    borderRadius: "12px",
+                                    background: "#FFFFFF",
+                                    font: "inherit",
+                                    fontSize: "13px",
+                                    fontWeight: "700",
+                                    color: "#111318",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                {a.notDefault ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={a.makeDefault}
+                                      style={{
+                                        height: "44px",
+                                        padding: "0 14px",
+                                        border: "none",
+                                        borderRadius: "12px",
+                                        background: "transparent",
+                                        font: "inherit",
+                                        fontSize: "13px",
+                                        fontWeight: "700",
+                                        color: "#0D4F8B",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Set as default
+                                    </button>
+                                  </>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={a.remove}
+                                  aria-label={`Delete ${a.label} address`}
                                   style={{
                                     height: "44px",
                                     padding: "0 14px",
@@ -3882,64 +4220,91 @@ export default class AccountScreen extends Component {
                                     font: "inherit",
                                     fontSize: "13px",
                                     fontWeight: "700",
-                                    color: "#0D4F8B",
+                                    color: "#B02418",
                                     cursor: "pointer",
                                   }}
                                 >
-                                  Set as default
+                                  Delete
                                 </button>
-                              </>
-                            ) : null}
-                          </div>
+                              </div>
+                            </>
+                          ) : null}
+                          {a.editing ? <AddressForm f={vals.addrForm} idp={"ad-" + i0} /> : null}
                         </div>
                       </Fragment>
                     ))}
-                    <button
-                      type="button"
-                      style={{
-                        minHeight: "220px",
-                        border: "1.5px dashed #C9C6BE",
-                        borderRadius: "24px",
-                        background: "#F6F5F1",
-                        font: "inherit",
-                        color: "#0D4F8B",
-                        cursor: "pointer",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "10px",
-                        fontSize: "15px",
-                        fontWeight: "700",
-                      }}
-                    >
-                      <span
+                    {vals.addingAddr ? (
+                      <div
                         style={{
-                          width: "44px",
-                          height: "44px",
-                          borderRadius: "999px",
-                          background: "#FFFFFF",
+                          minHeight: "220px",
+                          boxSizing: "border-box",
+                          border: "1.5px solid #1679BE",
+                          borderRadius: "24px",
+                          padding: "24px",
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          flexDirection: "column",
+                          gap: "10px",
+                          background: "#FFFFFF",
                         }}
                       >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.2"
-                          strokeLinecap="round"
-                          aria-hidden="true"
+                        <span style={{ fontSize: "16px", fontWeight: "700" }}>New address</span>
+                        <AddressForm f={vals.addrForm} idp="ad-new" />
+                      </div>
+                    ) : null}
+                    {vals.notAddingAddr ? (
+                      <button
+                        type="button"
+                        onClick={vals.newAddress}
+                        style={{
+                          minHeight: "220px",
+                          border: "1.5px dashed #C9C6BE",
+                          borderRadius: "24px",
+                          background: "#F6F5F1",
+                          font: "inherit",
+                          color: "#0D4F8B",
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "10px",
+                          fontSize: "15px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "44px",
+                            height: "44px",
+                            borderRadius: "999px",
+                            background: "#FFFFFF",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
                         >
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                      </span>
-                      Add a new address
-                    </button>
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
+                        </span>
+                        Add a new address
+                      </button>
+                    ) : null}
                   </div>
+                  {vals.addrListError ? (
+                    <span role="alert" style={{ fontSize: "12px", color: "#B02418" }}>
+                      {vals.addrListError}
+                    </span>
+                  ) : null}
                 </>
               ) : null}
               {vals.is.payment ? (
@@ -4017,8 +4382,9 @@ export default class AccountScreen extends Component {
                             fontWeight: "700",
                             letterSpacing: "-0.02em",
                           }}
+                          suppressHydrationWarning
                         >
-                          [PHONE]
+                          {vals.telebirrPhone}
                         </span>
                       </span>
                     </div>
@@ -4212,7 +4578,8 @@ export default class AccountScreen extends Component {
                         <input
                           id="s-name"
                           type="text"
-                          placeholder="[Name]"
+                          placeholder="Full name"
+                          defaultValue={vals.userName}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4233,7 +4600,8 @@ export default class AccountScreen extends Component {
                         <input
                           id="s-phone"
                           type="tel"
-                          placeholder="[PHONE]"
+                          placeholder="09XX XXX XXX"
+                          defaultValue={vals.userPhone}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4254,7 +4622,8 @@ export default class AccountScreen extends Component {
                         <input
                           id="s-email"
                           type="email"
-                          placeholder="[EMAIL]"
+                          placeholder="you@example.com"
+                          defaultValue={vals.userEmail}
                           style={{
                             height: "50px",
                             boxSizing: "border-box",
@@ -4270,6 +4639,7 @@ export default class AccountScreen extends Component {
                       <button
                         type="button"
                         className="btn-y"
+                        onClick={vals.saveProfile}
                         style={{
                           alignSelf: "flex-start",
                           height: "48px",
@@ -4286,6 +4656,11 @@ export default class AccountScreen extends Component {
                       >
                         Save changes
                       </button>
+                      {vals.profileNote ? (
+                        <span role="status" style={{ fontSize: "12px", color: "#5E6470" }}>
+                          {vals.profileNote}
+                        </span>
+                      ) : null}
                     </form>
                     <div
                       style={{

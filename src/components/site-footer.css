@@ -142,6 +142,20 @@
   stroke-linejoin: round;
 }
 
+.sf-news small {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.sf-news small.sf-news-ok {
+  color: #8fd19a;
+}
+
+.sf-news small.sf-news-error {
+  color: #ffb4a8;
+}
+
 .sf-social {
   display: flex;
   gap: 10px;

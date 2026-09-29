@@ -3,6 +3,7 @@
 import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
+import { auth, navigate } from "@/lib/client/store";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -28,7 +29,66 @@ function score(pw) {
 class Component extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { tab: "signin", showPw: false, remember: true, newPw: "", terms: false };
+    var init = props.initial || {};
+    this.state = {
+      tab: init.tab === "signup" ? "create" : "signin",
+      showPw: false,
+      remember: true,
+      newPw: "",
+      terms: false,
+      siId: "",
+      siPw: "",
+      caName: "",
+      caPhone: "",
+      caEmail: "",
+      pending: false,
+      error: "",
+      note: "",
+    };
+  }
+  submitSignIn(e) {
+    if (e) e.preventDefault();
+    var self = this;
+    var s = this.state;
+    if (s.pending) return;
+    if (!s.siId.trim() || !s.siPw) {
+      this.setState({ error: "Enter your phone or email and your password.", note: "" });
+      return;
+    }
+    this.setState({ pending: true, error: "", note: "" });
+    auth
+      .signIn(s.siId.trim(), s.siPw, !!s.remember)
+      .then(function () {
+        navigate((self.props.initial && self.props.initial.next) || "/account");
+      })
+      .catch(function (err) {
+        self.setState({ pending: false, error: (err && err.message) || "Something went wrong. Please try again." });
+      });
+  }
+  submitCreate(e) {
+    if (e) e.preventDefault();
+    var self = this;
+    var s = this.state;
+    if (s.pending) return;
+    if (score(s.newPw) < 2 || !s.terms) return;
+    var identifier = s.caPhone.trim() || s.caEmail.trim();
+    if (!s.caName.trim()) {
+      this.setState({ error: "Enter your full name.", note: "" });
+      return;
+    }
+    if (!identifier) {
+      this.setState({ error: "Enter your phone or email.", note: "" });
+      return;
+    }
+    this.setState({ pending: true, error: "", note: "" });
+    auth
+      .signUp(s.caName.trim(), identifier, s.newPw)
+      .then(function () {
+        navigate((self.props.initial && self.props.initial.next) || "/account");
+      })
+      .catch(function (err) {
+        self.setState({ pending: false, error: (err && err.message) || "Something went wrong. Please try again." });
+      });
   }
   renderVals() {
     var self = this;
@@ -46,7 +106,7 @@ class Component extends React.Component {
         fg: on ? "#0D4F8B" : "#5E6470",
         shadow: on ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
         pick: function () {
-          self.setState({ tab: t.id });
+          self.setState({ tab: t.id, error: "", note: "" });
         },
       };
     });
@@ -74,7 +134,52 @@ class Component extends React.Component {
       isSignIn: tab === "signin",
       isCreate: tab === "create",
       goCreate: function () {
-        self.setState({ tab: "create" });
+        self.setState({ tab: "create", error: "", note: "" });
+      },
+      next: (self.props.initial && self.props.initial.next) || "/account",
+      pending: !!s.pending,
+      pendingAria: s.pending ? "true" : "false",
+      error: s.error || "",
+      note: s.note || "",
+      siId: s.siId || "",
+      siPw: s.siPw || "",
+      caName: s.caName || "",
+      caPhone: s.caPhone || "",
+      caEmail: s.caEmail || "",
+      field: function (name) {
+        return function (e) {
+          var patch = { error: "" };
+          patch[name] = e.target.value;
+          self.setState(patch);
+        };
+      },
+      enterSignIn: function (e) {
+        if (e.key === "Enter") self.submitSignIn(e);
+      },
+      enterCreate: function (e) {
+        if (e.key === "Enter") self.submitCreate(e);
+      },
+      signIn: function (e) {
+        self.submitSignIn(e);
+      },
+      create: function (e) {
+        self.submitCreate(e);
+      },
+      signInLabel: s.pending ? "Signing in…" : "Sign in",
+      createLabel: s.pending ? "Creating account…" : "Create account",
+      unavailable: function (what) {
+        return function (e) {
+          if (e) e.preventDefault();
+          self.setState({
+            error: "",
+            note:
+              what === "google"
+                ? "Google sign-in isn't available yet. Please use your phone or email and password."
+                : what === "otp"
+                  ? "Phone (OTP) sign-in isn't available yet. Please use your phone or email and password."
+                  : "Password reset isn't available online yet. Please contact support to reset your password.",
+          });
+        };
       },
       pwType: shown ? "text" : "password",
       pwShown: shown,
@@ -451,7 +556,7 @@ export default class SignInScreen extends Component {
               data-sec="right-form"
             >
               <Link
-                href="/"
+                href="/shop"
                 style={{
                   position: "absolute",
                   top: "32px",
@@ -592,6 +697,9 @@ export default class SignInScreen extends Component {
                             type="text"
                             autoComplete="username"
                             placeholder="09XX XXX XXX or you@example.com"
+                            value={vals.siId}
+                            onChange={vals.field("siId")}
+                            onKeyDown={vals.enterSignIn}
                             style={{
                               flexGrow: "1",
                               minWidth: "0",
@@ -642,6 +750,9 @@ export default class SignInScreen extends Component {
                             type={vals.pwType}
                             autoComplete="current-password"
                             placeholder="Your password"
+                            value={vals.siPw}
+                            onChange={vals.field("siPw")}
+                            onKeyDown={vals.enterSignIn}
                             style={{
                               flexGrow: "1",
                               minWidth: "0",
@@ -734,6 +845,7 @@ export default class SignInScreen extends Component {
                         </label>
                         <a
                           href="#"
+                          onClick={vals.unavailable("forgot")}
                           style={{
                             height: "44px",
                             display: "flex",
@@ -748,7 +860,9 @@ export default class SignInScreen extends Component {
                       </div>
                     </div>
                     <Link
-                      href="/account"
+                      href={vals.next}
+                      onClick={vals.signIn}
+                      aria-disabled={vals.pendingAria}
                       className="btn-y"
                       style={{
                         height: "54px",
@@ -763,7 +877,7 @@ export default class SignInScreen extends Component {
                         gap: "10px",
                       }}
                     >
-                      Sign in
+                      {vals.signInLabel}
                       <svg
                         width="17"
                         height="17"
@@ -778,6 +892,11 @@ export default class SignInScreen extends Component {
                         <path d="M5 12h14M13 6l6 6-6 6" />
                       </svg>
                     </Link>
+                    {vals.error ? (
+                      <span role="alert" style={{ marginTop: "-10px", fontSize: "12px", color: "#B02418", textAlign: "center" }}>
+                        {vals.error}
+                      </span>
+                    ) : null}
                     <div style={{ display: "flex", alignItems: "center", gap: "14px", fontSize: "13px", color: "#5E6470" }}>
                       <span style={{ flexGrow: "1", height: "1px", background: "#E6E4DE" }} />
                       or
@@ -787,6 +906,8 @@ export default class SignInScreen extends Component {
                       <button
                         type="button"
                         className="ghost"
+                        aria-disabled="true"
+                        onClick={vals.unavailable("google")}
                         style={{
                           height: "50px",
                           border: "1.5px solid #E6E4DE",
@@ -826,6 +947,8 @@ export default class SignInScreen extends Component {
                       <button
                         type="button"
                         className="ghost"
+                        aria-disabled="true"
+                        onClick={vals.unavailable("otp")}
                         style={{
                           height: "50px",
                           border: "1.5px solid #E6E4DE",
@@ -859,6 +982,11 @@ export default class SignInScreen extends Component {
                         Continue with phone (OTP)
                       </button>
                     </div>
+                    {vals.note ? (
+                      <span role="status" style={{ marginTop: "-10px", fontSize: "12px", color: "#5E6470", textAlign: "center" }}>
+                        {vals.note}
+                      </span>
+                    ) : null}
                     <span style={{ fontSize: "14px", color: "#5E6470", textAlign: "center" }}>
                       {"New to Simbatech? "}
                       <button
@@ -923,6 +1051,9 @@ export default class SignInScreen extends Component {
                             type="text"
                             autoComplete="name"
                             placeholder="First and last name"
+                            value={vals.caName}
+                            onChange={vals.field("caName")}
+                            onKeyDown={vals.enterCreate}
                             style={{
                               flexGrow: "1",
                               minWidth: "0",
@@ -975,6 +1106,9 @@ export default class SignInScreen extends Component {
                               type="tel"
                               autoComplete="tel-national"
                               placeholder="7XX XXX XXX"
+                              value={vals.caPhone}
+                              onChange={vals.field("caPhone")}
+                              onKeyDown={vals.enterCreate}
                               style={{
                                 flexGrow: "1",
                                 minWidth: "0",
@@ -1010,6 +1144,9 @@ export default class SignInScreen extends Component {
                               type="email"
                               autoComplete="email"
                               placeholder="you@example.com"
+                              value={vals.caEmail}
+                              onChange={vals.field("caEmail")}
+                              onKeyDown={vals.enterCreate}
                               style={{
                                 flexGrow: "1",
                                 minWidth: "0",
@@ -1049,6 +1186,7 @@ export default class SignInScreen extends Component {
                             placeholder="At least 8 characters"
                             value={vals.newPw}
                             onChange={vals.onNewPw}
+                            onKeyDown={vals.enterCreate}
                             aria-describedby="ca-strength"
                             style={{
                               flexGrow: "1",
@@ -1180,7 +1318,9 @@ export default class SignInScreen extends Component {
                     {vals.canCreate ? (
                       <>
                         <Link
-                          href="/account"
+                          href={vals.next}
+                          onClick={vals.create}
+                          aria-disabled={vals.pendingAria}
                           className="btn-y"
                           style={{
                             height: "54px",
@@ -1195,7 +1335,7 @@ export default class SignInScreen extends Component {
                             gap: "10px",
                           }}
                         >
-                          Create account
+                          {vals.createLabel}
                           <svg
                             width="17"
                             height="17"
@@ -1210,6 +1350,11 @@ export default class SignInScreen extends Component {
                             <path d="M5 12h14M13 6l6 6-6 6" />
                           </svg>
                         </Link>
+                        {vals.error ? (
+                          <span role="alert" style={{ marginTop: "-10px", fontSize: "12px", color: "#B02418", textAlign: "center" }}>
+                            {vals.error}
+                          </span>
+                        ) : null}
                       </>
                     ) : null}
                     {vals.cannotCreate ? (

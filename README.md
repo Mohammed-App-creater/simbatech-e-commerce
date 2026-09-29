@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Simbatech
 
-## Getting Started
+The website for Simbatech, an e-commerce store where customers buy products or rent them by the day (Ethiopian market: prices in ETB, Telebirr / CBE Birr / card payments).
 
-First, run the development server:
+- **This repo:** the site — Next.js 16 (App Router), React 19. The screens in `src/screens` were built pixel-for-pixel from the design export in `../Clint Frontend`.
+- **Backend:** the separate `simbatech-api` repo — Django REST API + PostgreSQL, run with Docker.
+
+## Getting started
+
+1. Start the API (see the `simbatech-api` README): `docker compose up -d` in that folder gives you the API on http://localhost:8000 with the catalog and a demo customer already loaded.
+2. Run the site:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env     # API_URL=http://localhost:8000
+npm install
+npm run dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Demo customer:** `demo@simbatech.et` / `simbatech123`. Promo code `SIMBA10` gives 10% off purchases. The store admin is at http://localhost:8000/admin/ (`admin@simbatech.et` / `admin12345`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it fits together
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+next.config.ts              proxies /api/* to the Django API, so the browser and the API share one origin
+src/app/<page>/page.tsx     server component: loads the page's data from the API, passes `initial` to the screen
+src/lib/server/api.ts       server-side fetch helper (forwards the visitor's cookies)
+src/screens/*.jsx           the UI (class components from the design; inline styles are the design)
+src/lib/client/store.js     browser store for user / cart / wishlist + actions (add to cart, sign in, …)
+src/lib/client/api.js       fetch wrapper for the API (adds Django's CSRF header)
+src/lib/pricing.ts          pricing rules mirrored from the API, for live totals in the UI
+```
 
-## Learn More
+- **Accounts:** sign up / sign in with a phone number or email. The API keeps the session in an httpOnly cookie.
+- **Cart:** guests get a cart tied to their session; it merges into the account when they sign in.
+- **Pricing:** the API is authoritative; `src/lib/pricing.ts` has the same rules so cart and checkout can preview totals.
+- **Payments are simulated** in the API (no gateway yet). See the API README.
 
-To learn more about Next.js, take a look at the following resources:
+### Layout
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The design is drawn on a 1440px canvas. `src/app/responsive.css` and `src/app/mobile.css` adapt it to tablets and phones by targeting the `data-*` attributes and inline styles in the screens, so keep those intact when editing screen markup. On phones a bottom tab bar (`MobileTabBar`) and a filter sheet on the shop page (`MobileFilters`) are added.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`scripts/convert.py` is the tool that originally generated `src/screens` from the design export. The screens are now wired to real data by hand, so **don't regenerate them** — it would overwrite that work.
 
-## Deploy on Vercel
+## Checks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+```

@@ -50,6 +50,29 @@
     stroke-linejoin: round;
   }
 
+  .mtb-icon {
+    position: relative;
+    display: block;
+    height: 22px;
+  }
+
+  .mtb-badge {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: #2f7a3c;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+
   .mtb-item[aria-current="page"] {
     color: #0d4f8b;
   }
