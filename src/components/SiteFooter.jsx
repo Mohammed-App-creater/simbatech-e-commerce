@@ -87,9 +87,8 @@ function Payments() {
       <span className="sf-pay-telebirr" role="img" aria-label="telebirr">
         {PAY_LOGOS.telebirr ? <img src={PAY_LOGOS.telebirr} alt="" /> : "telebirr"}
       </span>
-      <span className="sf-pay-cbe">
-        {PAY_LOGOS.cbe && <img src={PAY_LOGOS.cbe} alt="" />}
-        CBE Birr
+      <span className="sf-pay-cbe" role="img" aria-label="CBE Birr">
+        {PAY_LOGOS.cbe ? <img src={PAY_LOGOS.cbe} alt="" /> : "CBE Birr"}
       </span>
       <span className="sf-pay-visa">VISA</span>
       <span className="sf-pay-mc" role="img" aria-label="Mastercard">

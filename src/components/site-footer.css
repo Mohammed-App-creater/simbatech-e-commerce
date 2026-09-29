@@ -389,8 +389,9 @@
   width: auto;
 }
 
-.sf-pay-telebirr img {
-  height: 22px;
+.sf-pay-telebirr img,
+.sf-pay-cbe img {
+  height: 24px;
 }
 
 .sf-pay-telebirr {
