@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import DeliverTo from "@/components/DeliverTo";
 import CategoryMenu from "@/components/CategoryMenu";
 import {
   shopState,
@@ -977,52 +978,7 @@ export default class ProductScreen extends Component {
             data-sec="utility-bar"
           >
             <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-              <button
-                type="button"
-                style={{
-                  height: "28px",
-                  padding: "0 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  border: "1px solid rgba(255,255,255,0.25)",
-                  borderRadius: "8px",
-                  background: "transparent",
-                  color: "#FFFFFF",
-                  font: "inherit",
-                  fontSize: "13px",
-                  cursor: "pointer",
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#8FD19A"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-                  <circle cx="12" cy="9.5" r="2.5" />
-                </svg>
-                Deliver to
-                <strong>{vals.city}</strong>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
+              <DeliverTo />
               <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <svg
                   width="16"

@@ -95,8 +95,13 @@ class Component extends React.Component {
       self.setState({ resendIn: Math.max(0, left) });
     }, 1000);
   }
+  // Where to go after signing in: the page that sent the visitor here, otherwise staff go to the admin
+  // and customers to their account (the store holds the signed-in user by the time this is called).
   nextHref() {
-    return (this.props.initial && this.props.initial.next) || "/account";
+    var explicit = this.props.initial && this.props.initial.next;
+    if (explicit) return explicit;
+    var user = shopState(this.props.initial).user;
+    return user && user.isStaff ? "/admin" : "/account";
   }
   setMode(mode) {
     this.stopCountdown();
@@ -259,7 +264,7 @@ class Component extends React.Component {
     auth
       .signIn(s.siId.trim(), s.siPw, !!s.remember)
       .then(function () {
-        navigate((self.props.initial && self.props.initial.next) || "/account");
+        navigate(self.nextHref());
       })
       .catch(function (err) {
         self.setState({ pending: false, error: (err && err.message) || "Something went wrong. Please try again." });
@@ -288,7 +293,7 @@ class Component extends React.Component {
     auth
       .signUp(s.caName.trim(), identifier, s.newPw)
       .then(function () {
-        navigate((self.props.initial && self.props.initial.next) || "/account");
+        navigate(self.nextHref());
       })
       .catch(function (err) {
         self.setState({ pending: false, error: (err && err.message) || "Something went wrong. Please try again." });
@@ -361,7 +366,7 @@ class Component extends React.Component {
       // Google: a real link only when the server has it configured
       googleOn: !!authCfg.google,
       googleOff: !authCfg.google,
-      googleHref: auth.googleStartUrl(this.nextHref()),
+      googleHref: auth.googleStartUrl((this.props.initial && this.props.initial.next) || "/signin"),
       googleNote: function (e) {
         if (e) e.preventDefault();
         self.setState({ error: "", note: "Google sign-in isn't set up yet — use your phone or email." });

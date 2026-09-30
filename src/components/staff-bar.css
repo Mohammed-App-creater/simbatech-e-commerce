@@ -1,0 +1,44 @@
+/* Floating "Back to admin" button shown to staff on the storefront (StaffBar.jsx). */
+.staff-bar {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 60;
+  height: 48px;
+  padding: 0 20px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  background: #0d4f8b;
+  color: #ffffff;
+  font-family: "Geist", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 12px 32px -12px rgba(13, 79, 139, 0.6);
+}
+
+.staff-bar:hover {
+  background: #1a62a8;
+  color: #ffffff;
+}
+
+.staff-bar svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* phones: sit above the bottom tab bar */
+@media (max-width: 768px) {
+  .staff-bar {
+    left: 16px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    height: 44px;
+  }
+}

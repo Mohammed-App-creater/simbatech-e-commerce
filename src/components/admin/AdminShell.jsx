@@ -58,6 +58,10 @@ export default function AdminShell({ user, counts, children }) {
             <small>Staff</small>
           </span>
         </div>
+        <Link href="/" className="adm-btn adm-shop" data-kind="primary" aria-label="Go to the shop">
+          <Icon d={["M4 7h16v13H4z", "M8 7V5a4 4 0 0 1 8 0v2"]} size={16} />
+          <span>Go to the shop</span>
+        </Link>
         <button type="button" className="adm-btn" onClick={signOut}>
           Sign out
         </button>

@@ -132,7 +132,12 @@ export type Shell = {
 export type OrderDTO = { id: string; number: string; [key: string]: unknown };
 export type PageDTO = { slug: string; title: string; summary: string; body: string; updatedAt: string };
 
-export const getShell = () => apiGet<Shell>("/shell") as Promise<Shell>;
+export const getShell = async () => {
+  const shell = await apiGet<Shell>("/shell");
+  // /shell always exists on the Simbatech API: a 404 means API_URL points at some other server
+  if (!shell) throw new ApiRequestError(502, `No Simbatech API at ${API_URL} (GET /api/shell returned 404). Check API_URL.`);
+  return shell;
+};
 export const getStore = () => apiGetPublic<StoreDTO>("/settings") as Promise<StoreDTO>;
 export const listProducts = async () => (await apiGetPublic<{ items: ProductDTO[] }>("/products"))?.items ?? [];
 export const getProduct = (slug: string) => apiGetPublic<ProductDTO>(`/products/${encodeURIComponent(slug)}`);

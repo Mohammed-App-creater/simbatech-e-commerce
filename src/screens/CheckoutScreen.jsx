@@ -6,6 +6,7 @@ import Render from "@/components/Render";
 import PhoneInput from "@/components/PhoneInput";
 import { isCompletePhone } from "@/lib/phone";
 import SiteFooter from "@/components/SiteFooter";
+import { readDeliverArea } from "@/components/DeliverTo";
 import PayLogo, { PayBadges } from "@/components/PayLogo";
 import { shopState, connectShop, storeVals, placeOrder, finishCheckout } from "@/lib/client/store";
 import { computeTotals, SAME_DAY_FEE, DAY_MS, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
@@ -145,6 +146,9 @@ class Component extends React.Component {
   }
   componentDidMount() {
     this.unsubShop = connectShop(this);
+    // the sub-city picked in the header's "Deliver to" prefills a new address's area
+    var area = readDeliverArea();
+    if (area && !this.state.newArea) this.setState({ newArea: area });
   }
   componentWillUnmount() {
     this.unsubShop && this.unsubShop();

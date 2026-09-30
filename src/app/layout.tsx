@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import MobileTabBar from "@/components/MobileTabBar";
 import NavProgress from "@/components/NavProgress";
 import RouterBridge from "@/components/RouterBridge";
+import StaffBar from "@/components/StaffBar";
 import StoreProvider from "@/components/StoreProvider";
 import { getStore } from "@/lib/server/api";
 import "./fonts.css";
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </Suspense>
           {children}
           <MobileTabBar />
+          <StaffBar />
         </StoreProvider>
       </body>
     </html>
