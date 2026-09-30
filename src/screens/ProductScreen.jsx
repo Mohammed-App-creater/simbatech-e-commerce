@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import CategoryMenu from "@/components/CategoryMenu";
 import {
   shopState,
   connectShop,
@@ -796,7 +797,14 @@ class Component extends React.Component {
       },
       rvBusy: !!s.rvBusy,
       rvErr: s.rvErr || "",
-      rvNotice: s.rvNotice || "",
+      // a review shows only after staff approve it: tell its author where theirs stands
+      rvNotice:
+        s.rvNotice ||
+        (mine && mine.status === "pending"
+          ? "Your review is waiting for approval. It will show here once we've checked it."
+          : mine && mine.status === "rejected"
+            ? "Your review wasn't published. You can edit it and send it again."
+            : ""),
       rvSubmitLabel: s.rvBusy ? "Saving…" : mine ? "Update your review" : "Post review",
       submitReview: function (e) {
         if (e && e.preventDefault) e.preventDefault();
@@ -901,7 +909,7 @@ class Component extends React.Component {
           rv: res,
           rvBusy: false,
           rvOpen: false,
-          rvNotice: hadMine ? "Your review was updated." : "Thanks — your review is live.",
+          rvNotice: hadMine ? "Your review was updated. It will show again once we've approved it." : "Thanks — your review will show here once we've approved it.",
         });
       })
       .catch(function (err) {
@@ -1064,45 +1072,7 @@ export default class ProductScreen extends Component {
             <Link href="/" aria-label="Simbatech home" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" }}>
               <img src="/images/logo.png" alt="Simbatech" style={{ height: "54px", width: "auto", display: "block" }} />
             </Link>
-            <Link
-              href="/shop"
-              className="ghost"
-              style={{
-                height: "52px",
-                boxSizing: "border-box",
-                padding: "0 18px",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                border: "1px solid #E6E4DE",
-                borderRadius: "16px",
-                background: "#FFFFFF",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "#111318",
-                flexShrink: "0",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <rect x="4" y="4" width="6" height="6" rx="1.5" />
-                <rect x="14" y="4" width="6" height="6" rx="1.5" />
-                <rect x="4" y="14" width="6" height="6" rx="1.5" />
-                <rect x="14" y="14" width="6" height="6" rx="1.5" />
-              </svg>
-              All categories
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </Link>
+            <CategoryMenu />
             <form
               role="search"
               style={{

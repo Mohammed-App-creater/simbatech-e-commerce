@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import CategoryMenu from "@/components/CategoryMenu";
 import PayLogo, { hasPayLogo } from "@/components/PayLogo";
 import {
   shopState,
@@ -1057,6 +1058,7 @@ class Component extends React.Component {
       userName: user.name,
       firstName: firstName,
       initials: hv.userInitials,
+      isStaff: !!user.isStaff, // staff get a link to /admin in the side menu
       memberSince: "Member since " + local(user.createdAt || init.today).getUTCFullYear(),
       refundTo: user.phone ? "To Telebirr " + user.phone : "To your payment method",
       storeCity: store.city,
@@ -1505,45 +1507,7 @@ export default class AccountScreen extends Component {
             <Link href="/" aria-label="Simbatech home" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" }}>
               <img src="/images/logo.png" alt="Simbatech" style={{ height: "54px", width: "auto", display: "block" }} />
             </Link>
-            <Link
-              href="/shop"
-              className="ghost"
-              style={{
-                height: "52px",
-                boxSizing: "border-box",
-                padding: "0 18px",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                border: "1px solid #E6E4DE",
-                borderRadius: "16px",
-                background: "#FFFFFF",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "#111318",
-                flexShrink: "0",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <rect x="4" y="4" width="6" height="6" rx="1.5" />
-                <rect x="14" y="4" width="6" height="6" rx="1.5" />
-                <rect x="4" y="14" width="6" height="6" rx="1.5" />
-                <rect x="14" y="14" width="6" height="6" rx="1.5" />
-              </svg>
-              All categories
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </Link>
+            <CategoryMenu />
             <form
               role="search"
               style={{
@@ -2243,6 +2207,37 @@ export default class AccountScreen extends Component {
                     </svg>
                     <span style={{ flexGrow: "1" }}>Settings</span>
                   </button>
+                  {vals.isStaff ? (
+                    <Link
+                      href="/admin"
+                      style={{
+                        height: "48px",
+                        padding: "0 12px",
+                        borderRadius: "14px",
+                        color: "#0D4F8B",
+                        fontSize: "15px",
+                        fontWeight: "600",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                      }}
+                    >
+                      <svg
+                        width="19"
+                        height="19"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+                      </svg>
+                      <span style={{ flexGrow: "1" }}>Store admin</span>
+                    </Link>
+                  ) : null}
                   <Link
                     href="/"
                     onClick={vals.signOut}

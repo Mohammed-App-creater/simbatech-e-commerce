@@ -13,8 +13,8 @@ const TABS = [
   { href: "/account", label: "Account", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" },
 ];
 
-// Flows that have their own call to action at the bottom of the screen.
-const HIDDEN_ON = ["/checkout", "/signin"];
+// Flows that have their own call to action at the bottom of the screen, and the staff area (its own menu).
+const HIDDEN_ON = ["/checkout", "/signin", "/admin"];
 
 /* App-style bottom navigation, shown on phones only (see mobile-tab-bar.css). */
 export default function MobileTabBar() {

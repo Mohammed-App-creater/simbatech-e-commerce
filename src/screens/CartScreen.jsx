@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import CategoryMenu from "@/components/CategoryMenu";
 import { PayBadges } from "@/components/PayLogo";
 import { shopState, connectShop, headerVals, submitSearch, navigate, storeVals, cart, wishlist } from "@/lib/client/store";
 import { computeTotals, FREE_DELIVERY_THRESHOLD, DELIVERY_FEE } from "@/lib/pricing";
@@ -596,45 +597,7 @@ export default class CartScreen extends Component {
             <Link href="/" aria-label="Simbatech home" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" }}>
               <img src="/images/logo.png" alt="Simbatech" style={{ height: "54px", width: "auto", display: "block" }} />
             </Link>
-            <Link
-              href="/shop"
-              className="ghost"
-              style={{
-                height: "52px",
-                boxSizing: "border-box",
-                padding: "0 18px",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                border: "1px solid #E6E4DE",
-                borderRadius: "16px",
-                background: "#FFFFFF",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "#111318",
-                flexShrink: "0",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <rect x="4" y="4" width="6" height="6" rx="1.5" />
-                <rect x="14" y="4" width="6" height="6" rx="1.5" />
-                <rect x="4" y="14" width="6" height="6" rx="1.5" />
-                <rect x="14" y="14" width="6" height="6" rx="1.5" />
-              </svg>
-              All categories
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </Link>
+            <CategoryMenu />
             <form
               role="search"
               style={{

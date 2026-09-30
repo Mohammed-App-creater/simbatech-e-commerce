@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
+import CategoryMenu from "@/components/CategoryMenu";
 import { shopState, subscribe, headerVals, submitSearch, storeVals } from "@/lib/client/store";
 import { FREE_DELIVERY_THRESHOLD, formatETB } from "@/lib/pricing";
 
@@ -9,8 +10,8 @@ import { FREE_DELIVERY_THRESHOLD, formatETB } from "@/lib/pricing";
  * The site chrome shared by the content pages (/p/[slug], /track, /reset-password): the utility
  * bar, the header (logo, categories, search, account, wishlist, cart) and the department nav.
  * Markup and inline styles are the design's, copied from HomeScreen so responsive.css/mobile.css
- * apply; the only difference is that "All categories" links to the shop instead of opening the
- * mega menu. Screens render it inside their page wrapper, followed by their own content.
+ * apply; "All categories" opens the shared mega menu (CategoryMenu). Screens render it inside their
+ * page wrapper, followed by their own content.
  */
 
 // The base rules every generated screen ships in its <style> tag (body, links, hover states).
@@ -168,47 +169,7 @@ export default function SiteHeader({ initial }) {
         <Link href="/" aria-label="Simbatech home" style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" }}>
           <img src="/images/logo.png" alt="Simbatech" style={{ height: "54px", width: "auto", display: "block" }} />
         </Link>
-        <Link
-          href="/shop"
-          className="ghost"
-          style={{
-            height: "52px",
-            padding: "0 18px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            border: "1px solid #E6E4DE",
-            borderRadius: "16px",
-            background: "#FFFFFF",
-            font: "inherit",
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "#111318",
-            cursor: "pointer",
-            flexShrink: "0",
-            boxSizing: "border-box",
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <rect x="4" y="4" width="6" height="6" rx="1.5" />
-            <rect x="14" y="4" width="6" height="6" rx="1.5" />
-            <rect x="4" y="14" width="6" height="6" rx="1.5" />
-            <rect x="14" y="14" width="6" height="6" rx="1.5" />
-          </svg>
-          All categories
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </Link>
+        <CategoryMenu />
         <form
           role="search"
           style={{

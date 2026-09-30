@@ -25,6 +25,19 @@ Next.js 16 App Router, React 19. The backend is a separate repo, `../simbatech-a
 - Store details (city, phone, address, hours, policies) come from the API's Store settings: `initial.store` /
   `storeVals(shop)`, or `useStore()` from `StoreProvider` in function components. Don't hard-code them.
 
+## The staff area (`/admin`)
+
+- Pages in `src/app/admin/*` fetch with `adminGet()` (`src/lib/server/admin.ts`) from the API's `/api/admin/*`
+  (the `backoffice` app). The API decides who is staff: signed-out visitors are redirected to sign in, customers
+  get the not-found page. Staff see a "Store admin" link in the account page's side menu (`user.isStaff`).
+- Screens are in `src/screens/admin/*.jsx`: hand-written **function components** styled by
+  `src/components/admin/admin.css` (`adm-*` classes, the storefront's palette and shapes), with shared pieces in
+  `src/components/admin/` (`AdminShell` frame, `ui.jsx`, `OrderTable`, `ReviewCard`).
+- Screens render straight from their `initial` prop. Actions go through `useAction()` in `ui.jsx`: call the API,
+  then `router.refresh()` so the page and the side menu's badges re-fetch. Filters live in the URL
+  (`?status=`, `?q=`, `?show=`).
+- Customer reviews wait for approval in `/admin/reviews`; the product page tells the author theirs is waiting.
+
 ## Rules for editing screens
 
 - Keep the design's markup: inline styles, class names, element nesting and `data-*` attributes

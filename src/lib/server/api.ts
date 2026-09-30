@@ -122,7 +122,7 @@ export type StoreDTO = {
 export type AuthConfig = { google: boolean; otp: boolean; otpDevMode: boolean; passwordReset: boolean };
 
 export type Shell = {
-  user: { id: number; name: string; email: string | null; phone: string | null; createdAt: string; hasPassword: boolean; google: boolean } | null;
+  user: { id: number; name: string; email: string | null; phone: string | null; createdAt: string; hasPassword: boolean; google: boolean; isStaff: boolean } | null;
   cart: CartDTO;
   wishlist: string[];
   store: StoreDTO;
