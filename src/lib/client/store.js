@@ -63,6 +63,7 @@ export function registerRouter(r) {
   router = r;
 }
 export function navigate(href, { replace = false } = {}) {
+  if (isBrowser) window.dispatchEvent(new Event("nav:start")); // top progress bar (NavProgress)
   if (router) (replace ? router.replace : router.push)(href);
   else if (isBrowser) window.location.assign(href);
 }

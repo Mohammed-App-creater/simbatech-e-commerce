@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import MobileTabBar from "@/components/MobileTabBar";
+import NavProgress from "@/components/NavProgress";
 import RouterBridge from "@/components/RouterBridge";
 import StoreProvider from "@/components/StoreProvider";
 import { getStore } from "@/lib/server/api";
@@ -26,6 +28,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <StoreProvider store={store}>
           <RouterBridge />
+          <Suspense fallback={null}>
+            <NavProgress />
+          </Suspense>
           {children}
           <MobileTabBar />
         </StoreProvider>
