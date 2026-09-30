@@ -416,23 +416,12 @@
   color: #6b2d90;
 }
 
-.sf-pay-visa {
-  color: #1a1f71;
-  font-style: italic;
+.sf-pay .sf-pay-visa img {
+  height: 12px;
 }
 
-.sf-pay-mc i {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: #eb001b;
-}
-
-.sf-pay-mc i + i {
-  margin-left: -6px;
-  background: #f79e1b;
-  opacity: 0.9;
+.sf-pay .sf-pay-mc img {
+  height: 18px;
 }
 
 /* ── Compact variant (checkout) ──────────────────────────── */

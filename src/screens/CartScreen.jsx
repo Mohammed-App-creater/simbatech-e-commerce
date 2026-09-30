@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import { PayBadges } from "@/components/PayLogo";
 import { shopState, connectShop, headerVals, submitSearch, navigate, storeVals, cart, wishlist } from "@/lib/client/store";
 import { computeTotals, FREE_DELIVERY_THRESHOLD, DELIVERY_FEE } from "@/lib/pricing";
 
@@ -2263,66 +2264,7 @@ export default class CartScreen extends Component {
                   </Link>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
                     <span style={{ fontSize: "12px", color: "#5E6470" }}>We accept</span>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <span
-                        style={{
-                          height: "30px",
-                          padding: "0 12px",
-                          display: "flex",
-                          alignItems: "center",
-                          borderRadius: "8px",
-                          border: "1px solid #EFEDE8",
-                          background: "#FFFFFF",
-                          color: "#1F9D55",
-                          fontSize: "12px",
-                          fontWeight: "800",
-                        }}
-                      >
-                        TELEBIRR
-                      </span>
-                      <span
-                        style={{
-                          height: "30px",
-                          padding: "0 12px",
-                          display: "flex",
-                          alignItems: "center",
-                          borderRadius: "8px",
-                          border: "1px solid #EFEDE8",
-                          background: "#FFFFFF",
-                          color: "#1A1F71",
-                          fontSize: "12px",
-                          fontWeight: "800",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        VISA
-                      </span>
-                      <span
-                        aria-label="Mastercard"
-                        role="img"
-                        style={{
-                          height: "30px",
-                          padding: "0 12px",
-                          display: "flex",
-                          alignItems: "center",
-                          borderRadius: "8px",
-                          border: "1px solid #EFEDE8",
-                          background: "#FFFFFF",
-                        }}
-                      >
-                        <span style={{ width: "14px", height: "14px", borderRadius: "999px", background: "#EB001B" }} />
-                        <span
-                          style={{
-                            width: "14px",
-                            height: "14px",
-                            marginLeft: "-6px",
-                            borderRadius: "999px",
-                            background: "#F79E1B",
-                            opacity: "0.9",
-                          }}
-                        />
-                      </span>
-                    </div>
+                    <PayBadges />
                   </div>
                 </aside>
               </section>

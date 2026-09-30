@@ -115,6 +115,8 @@ function scrollTop() {
 const PAY_LOGOS = {
   telebirr: "/images/pay/telebirr.png",
   cbe: "/images/pay/cbe-birr.png",
+  visa: "/images/pay/visa.svg",
+  mastercard: "/images/pay/mastercard.svg",
 };
 
 function Payments() {
@@ -126,10 +128,11 @@ function Payments() {
       <span className="sf-pay-cbe" role="img" aria-label="CBE Birr">
         {PAY_LOGOS.cbe ? <img src={PAY_LOGOS.cbe} alt="" /> : "CBE Birr"}
       </span>
-      <span className="sf-pay-visa">VISA</span>
+      <span className="sf-pay-visa" role="img" aria-label="Visa">
+        <img src={PAY_LOGOS.visa} alt="" />
+      </span>
       <span className="sf-pay-mc" role="img" aria-label="Mastercard">
-        <i />
-        <i />
+        <img src={PAY_LOGOS.mastercard} alt="" />
       </span>
     </div>
   );

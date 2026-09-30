@@ -4,6 +4,7 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import SiteFooter from "@/components/SiteFooter";
+import PayLogo, { hasPayLogo } from "@/components/PayLogo";
 import {
   shopState,
   connectShop,
@@ -4919,7 +4920,7 @@ export default class AccountScreen extends Component {
                               }}
                               suppressHydrationWarning
                             >
-                              {m.isTelebirr ? "TELEBIRR" : m.brand}
+                              {m.isTelebirr ? <PayLogo brand="telebirr" /> : hasPayLogo(m.brand) ? <PayLogo brand={m.brand} /> : m.brand}
                             </span>
                             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               {m.isDefault ? (

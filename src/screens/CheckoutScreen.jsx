@@ -6,6 +6,7 @@ import Render from "@/components/Render";
 import PhoneInput from "@/components/PhoneInput";
 import { isCompletePhone } from "@/lib/phone";
 import SiteFooter from "@/components/SiteFooter";
+import PayLogo, { PayBadges } from "@/components/PayLogo";
 import { shopState, connectShop, storeVals, placeOrder, finishCheckout } from "@/lib/client/store";
 import { computeTotals, SAME_DAY_FEE, DAY_MS, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
 
@@ -22,8 +23,8 @@ var WINDOWS = [
 ];
 // The design's internal id "mpesa" is Telebirr.
 var PAYS = [
-  { id: "mpesa", title: "Telebirr", sub: "Pay instantly from your phone", chip: "TELEBIRR", chipFg: "#1F9D55", chipStyle: "normal" },
-  { id: "card", title: "Debit or credit card", sub: "Visa or Mastercard", chip: "VISA", chipFg: "#1A1F71", chipStyle: "italic" },
+  { id: "mpesa", title: "Telebirr", sub: "Pay instantly from your phone", chip: "TELEBIRR", chipFg: "#1F9D55", chipStyle: "normal", logos: ["telebirr"] },
+  { id: "card", title: "Debit or credit card", sub: "Visa or Mastercard", chip: "VISA", chipFg: "#1A1F71", chipStyle: "italic", logos: ["visa", "mastercard"] },
   {
     id: "cod",
     title: "Pay on delivery",
@@ -1800,6 +1801,7 @@ export default class CheckoutScreen extends Component {
                                 padding: "0 12px",
                                 display: "flex",
                                 alignItems: "center",
+                                gap: "8px",
                                 borderRadius: "8px",
                                 border: "1px solid #EFEDE8",
                                 background: "#FFFFFF",
@@ -1810,7 +1812,7 @@ export default class CheckoutScreen extends Component {
                               }}
                               suppressHydrationWarning
                             >
-                              {po.chip}
+                              {po.logos ? po.logos.map((b) => <PayLogo key={b} brand={b} />) : po.chip}
                             </span>
                           </button>{" "}
                         </div>
@@ -2378,66 +2380,7 @@ export default class CheckoutScreen extends Component {
                 <span style={{ textAlign: "center", fontSize: "13px", color: vals.placeHintFg }} suppressHydrationWarning>
                   {vals.placeHint}
                 </span>
-                <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
-                  <span
-                    style={{
-                      height: "30px",
-                      padding: "0 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      borderRadius: "8px",
-                      border: "1px solid #EFEDE8",
-                      background: "#FFFFFF",
-                      color: "#1F9D55",
-                      fontSize: "12px",
-                      fontWeight: "800",
-                    }}
-                  >
-                    TELEBIRR
-                  </span>
-                  <span
-                    style={{
-                      height: "30px",
-                      padding: "0 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      borderRadius: "8px",
-                      border: "1px solid #EFEDE8",
-                      background: "#FFFFFF",
-                      color: "#1A1F71",
-                      fontSize: "12px",
-                      fontWeight: "800",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    VISA
-                  </span>
-                  <span
-                    role="img"
-                    aria-label="Mastercard"
-                    style={{
-                      height: "30px",
-                      padding: "0 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      borderRadius: "8px",
-                      border: "1px solid #EFEDE8",
-                      background: "#FFFFFF",
-                    }}
-                  >
-                    <span style={{ width: "14px", height: "14px", borderRadius: "999px", background: "#EB001B" }} />
-                    <span
-                      style={{
-                        width: "14px",
-                        height: "14px",
-                        marginLeft: "-6px",
-                        borderRadius: "999px",
-                        background: "#F79E1B",
-                        opacity: "0.9",
-                      }}
-                    />
-                  </span>
-                </div>
+                <PayBadges style={{ justifyContent: "center" }} />
               </aside>
             </div>
           </main>
