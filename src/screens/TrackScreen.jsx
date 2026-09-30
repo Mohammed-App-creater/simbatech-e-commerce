@@ -5,6 +5,8 @@ import Render from "@/components/Render";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { trackOrder, formatETB } from "@/lib/client/store";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
 /*
  * /track — public order lookup: order number + the phone used on the order → the same tracking
@@ -475,6 +477,10 @@ export default function TrackScreen({ initial }) {
       setError("Enter your order number and the phone number used on the order.");
       return;
     }
+    if (!isCompletePhone(p)) {
+      setError("Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567).");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -558,17 +564,15 @@ export default function TrackScreen({ initial }) {
               <label htmlFor="tr-phone" style={{ fontSize: "14px", fontWeight: "600" }}>
                 Phone number
               </label>
-              <input
+              <PhoneInput
                 id="tr-phone"
-                type="tel"
-                placeholder="09XX XXX XXX"
-                autoComplete="tel"
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
                   setError("");
                 }}
-                style={FIELD}
+                radius={14}
+                height={52}
               />
             </div>
           </div>

@@ -20,6 +20,8 @@ import {
   api,
 } from "@/lib/client/store";
 import { FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -237,7 +239,7 @@ class Component extends React.Component {
     };
     var body;
     if (f.kind === "telebirr") {
-      if (!f.phone.trim()) return fail("phone", "Enter the Telebirr phone number.");
+      if (!isCompletePhone(f.phone)) return fail("phone", "Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567).");
       body = { kind: "telebirr", phone: f.phone.trim() };
     } else {
       if (!/^\d{4}$/.test(f.last4.trim())) return fail("last4", "Enter the last four digits of the card.");
@@ -261,6 +263,12 @@ class Component extends React.Component {
     if (this.state.profileBusy) return;
     if (!p.name.trim()) {
       this.setState({ profileError: { field: "name", message: "Enter your name." } });
+      return;
+    }
+    if (p.phone.trim() && !isCompletePhone(p.phone)) {
+      this.setState({
+        profileError: { field: "phone", message: "Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567)." },
+      });
       return;
     }
     this.setState({ profileBusy: true, profileDone: false, profileError: null });
@@ -383,6 +391,10 @@ class Component extends React.Component {
       notes: f.notes || undefined,
       isDefault: !!f.isDefault,
     };
+    if (!isCompletePhone(f.phone)) {
+      this.setState({ addrError: "Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567)." });
+      return;
+    }
     this.setState({ addrBusy: true, addrError: "" });
     var req = s.addrEdit === "new" ? api("POST", "/api/addresses", body) : api("PATCH", "/api/addresses/" + s.addrEdit, body);
     req
@@ -1153,7 +1165,7 @@ function AddressForm({ f, idp }) {
       </label>
       <label htmlFor={idp + "-phone"} style={FIELD_LABEL}>
         Phone
-        <input id={idp + "-phone"} type="tel" placeholder="09XX XXX XXX" value={f.phone} onChange={f.on("phone")} style={FIELD} />
+        <PhoneInput id={idp + "-phone"} value={f.phone} onChange={f.on("phone")} height={50} radius={14} border="1px solid #E6E4DE" />
       </label>
       <label htmlFor={idp + "-notes"} style={FIELD_LABEL}>
         Notes for the driver
@@ -1254,7 +1266,15 @@ function PaymentMethodForm({ f, idp }) {
       {f.isTelebirr ? (
         <label htmlFor={idp + "-phone"} style={FIELD_LABEL}>
           Telebirr phone number
-          <input id={idp + "-phone"} type="tel" placeholder="09XX XXX XXX" value={f.phone} onChange={f.on("phone")} style={FIELD} />
+          <PhoneInput
+            id={idp + "-phone"}
+            value={f.phone}
+            onChange={f.on("phone")}
+            invalid={!!f.errorFor("phone")}
+            height={50}
+            radius={14}
+            border="1px solid #E6E4DE"
+          />
           <FieldError text={f.errorFor("phone")} />
         </label>
       ) : null}
@@ -5180,22 +5200,14 @@ export default class AccountScreen extends Component {
                         style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: "600" }}
                       >
                         Phone
-                        <input
+                        <PhoneInput
                           id="s-phone"
-                          type="tel"
-                          placeholder="09XX XXX XXX"
                           value={vals.profileForm.phone}
                           onChange={vals.profileForm.on("phone")}
-                          style={{
-                            height: "50px",
-                            boxSizing: "border-box",
-                            padding: "0 16px",
-                            border: "1px solid #E6E4DE",
-                            borderRadius: "14px",
-                            font: "inherit",
-                            fontSize: "15px",
-                            color: "#111318",
-                          }}
+                          invalid={!!vals.profileForm.errorFor("phone")}
+                          height={50}
+                          radius={14}
+                          border="1px solid #E6E4DE"
                         />
                         <FieldError text={vals.profileForm.errorFor("phone")} />
                       </label>

@@ -3,6 +3,8 @@
 import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 import SiteFooter from "@/components/SiteFooter";
 import { shopState, connectShop, storeVals, placeOrder, finishCheckout } from "@/lib/client/store";
 import { computeTotals, SAME_DAY_FEE, DAY_MS, FREE_DELIVERY_THRESHOLD } from "@/lib/pricing";
@@ -200,7 +202,7 @@ class Component extends React.Component {
     var selDate = s.date || DATES[0].id;
 
     // Completion
-    var contactDone = !!(s.name && s.name.trim().length > 1 && digits(s.phone, 15).length >= 9 && /.+@.+\..+/.test(s.email || ""));
+    var contactDone = !!(s.name && s.name.trim().length > 1 && isCompletePhone(s.phone) && /.+@.+\..+/.test(s.email || ""));
     var addrsL = initial.addresses || [];
     var isNew = s.addr === "new" || addrsL.length === 0;
     // Pick-up (from /checkout?fulfilment=pickup) only applies to purchase-only carts: rentals are always delivered and collected.
@@ -211,7 +213,7 @@ class Component extends React.Component {
     var slotDone = !!s.win && !(isToday && s.win === "w1");
     var payValid =
       s.pay === "cod" ||
-      (s.pay === "mpesa" && digits(s.mpesa, 15).length >= 9) ||
+      (s.pay === "mpesa" && isCompletePhone(s.mpesa)) ||
       (s.pay === "card" &&
         (!!savedCard || (digits(s.cardNo, 19).length >= 15 && digits(s.cardExp, 4).length === 4 && digits(s.cardCvc, 4).length >= 3)));
     var billingOk = s.billingSame || !!(s.billAddr && s.billAddr.trim());
@@ -907,28 +909,17 @@ export default class CheckoutScreen extends Component {
                       <label htmlFor="f-phone" style={{ fontSize: "14px", fontWeight: "600" }}>
                         Phone
                       </label>
-                      <input
+                      <PhoneInput
                         id="f-phone"
-                        type="tel"
-                        autoComplete="tel"
                         value={vals.phone}
                         onChange={vals.onPhone}
-                        placeholder="09XX XXX XXX"
-                        style={{
-                          height: "52px",
-                          boxSizing: "border-box",
-                          padding: "0 16px",
-                          border: "1.5px solid #E6E4DE",
-                          borderRadius: "12px",
-                          background: "#FFFFFF",
-                          font: "inherit",
-                          fontSize: "15px",
-                          color: "#111318",
-                        }}
-                        suppressHydrationWarning
+                        invalid={!!vals.errPhone}
+                        aria-describedby={vals.errPhone ? "f-phone-err" : undefined}
+                        radius={12}
+                        height={52}
                       />
                       {vals.errPhone ? (
-                        <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
+                        <span id="f-phone-err" role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>
                           {vals.errPhone}
                         </span>
                       ) : null}
@@ -1844,25 +1835,13 @@ export default class CheckoutScreen extends Component {
                           <label htmlFor="p-mpesa" style={{ fontSize: "14px", fontWeight: "600" }}>
                             Telebirr phone number
                           </label>
-                          <input
+                          <PhoneInput
                             id="p-mpesa"
-                            type="tel"
-                            autoComplete="tel"
                             value={vals.mpesa}
                             onChange={vals.onMpesa}
-                            placeholder="09XX XXX XXX"
-                            style={{
-                              height: "52px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              border: "1.5px solid #E6E4DE",
-                              borderRadius: "12px",
-                              background: "#FFFFFF",
-                              font: "inherit",
-                              fontSize: "15px",
-                              color: "#111318",
-                            }}
-                            suppressHydrationWarning
+                            invalid={!!vals.errMpesa}
+                            radius={12}
+                            height={52}
                           />
                           {vals.errMpesa ? (
                             <span role="alert" style={{ fontSize: "13px", fontWeight: "600", color: "#C42A1C" }}>

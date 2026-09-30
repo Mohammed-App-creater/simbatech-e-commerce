@@ -4,6 +4,8 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import Render from "@/components/Render";
 import { auth, navigate, shopState, connectShop, authConfig, storeVals } from "@/lib/client/store";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
 /* eslint-disable */
 // Generated from the Simbatech design export. Markup and logic mirror the original 1:1.
@@ -133,6 +135,10 @@ class Component extends React.Component {
     var phone = (s.otpStep === 2 ? s.otpSentTo : s.otpPhone).trim();
     if (!phone) {
       this.setState({ error: "Enter your phone number.", note: "" });
+      return;
+    }
+    if (!isCompletePhone(phone)) {
+      this.setState({ error: "Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567).", note: "" });
       return;
     }
     this.setState({ pending: true, error: "", note: "", topError: "" });
@@ -272,6 +278,10 @@ class Component extends React.Component {
     }
     if (!identifier) {
       this.setState({ error: "Enter your phone or email.", note: "" });
+      return;
+    }
+    if (s.caPhone.trim() && !isCompletePhone(s.caPhone)) {
+      this.setState({ error: "Enter the 9 digits after +251, starting with 9 or 7 (e.g. 911 234 567).", note: "" });
       return;
     }
     this.setState({ pending: true, error: "", note: "", topError: "" });
@@ -1372,54 +1382,15 @@ export default class SignInScreen extends Component {
                           <label htmlFor="otp-phone" style={{ fontSize: "13px", fontWeight: "600" }}>
                             Phone
                           </label>
-                          <div
-                            className="field"
-                            style={{
-                              height: "50px",
-                              boxSizing: "border-box",
-                              padding: "0 16px",
-                              border: "1px solid #E6E4DE",
-                              borderRadius: "14px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "10px",
-                              background: "#FFFFFF",
-                            }}
-                          >
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="#5E6470"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <rect x="6" y="2" width="12" height="20" rx="3" />
-                              <path d="M11 18h2" />
-                            </svg>
-                            <input
-                              id="otp-phone"
-                              type="tel"
-                              autoComplete="tel"
-                              placeholder="09XX XXX XXX"
-                              value={vals.otpPhone}
-                              onChange={vals.field("otpPhone")}
-                              onKeyDown={vals.enterOtpSend}
-                              style={{
-                                flexGrow: "1",
-                                minWidth: "0",
-                                height: "46px",
-                                border: "none",
-                                background: "transparent",
-                                font: "inherit",
-                                fontSize: "15px",
-                                color: "#111318",
-                              }}
-                            />
-                          </div>
+                          <PhoneInput
+                            id="otp-phone"
+                            value={vals.otpPhone}
+                            onChange={vals.field("otpPhone")}
+                            onKeyDown={vals.enterOtpSend}
+                            height={50}
+                            radius={14}
+                            border="1px solid #E6E4DE"
+                          />
                         </div>
                       ) : null}
                       {vals.otpStep2 ? (
@@ -2069,55 +2040,15 @@ export default class SignInScreen extends Component {
                           <label htmlFor="ca-phone" style={{ fontSize: "13px", fontWeight: "600" }}>
                             Phone
                           </label>
-                          <div
-                            className="field"
-                            style={{
-                              height: "48px",
-                              boxSizing: "border-box",
-                              padding: "0 6px 0 6px",
-                              border: "1px solid #E6E4DE",
-                              borderRadius: "14px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              background: "#FFFFFF",
-                            }}
-                          >
-                            <span
-                              style={{
-                                height: "34px",
-                                padding: "0 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                borderRadius: "9px",
-                                background: "#F3F2EE",
-                                fontSize: "13px",
-                                fontWeight: "700",
-                                color: "#3A3F4A",
-                              }}
-                            >
-                              +251
-                            </span>
-                            <input
-                              id="ca-phone"
-                              type="tel"
-                              autoComplete="tel-national"
-                              placeholder="7XX XXX XXX"
-                              value={vals.caPhone}
-                              onChange={vals.field("caPhone")}
-                              onKeyDown={vals.enterCreate}
-                              style={{
-                                flexGrow: "1",
-                                minWidth: "0",
-                                height: "44px",
-                                border: "none",
-                                background: "transparent",
-                                font: "inherit",
-                                fontSize: "15px",
-                                color: "#111318",
-                              }}
-                            />
-                          </div>
+                          <PhoneInput
+                            id="ca-phone"
+                            value={vals.caPhone}
+                            onChange={vals.field("caPhone")}
+                            onKeyDown={vals.enterCreate}
+                            height={48}
+                            radius={14}
+                            border="1px solid #E6E4DE"
+                          />
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                           <label htmlFor="ca-email" style={{ fontSize: "13px", fontWeight: "600" }}>

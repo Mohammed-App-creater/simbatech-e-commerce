@@ -1,0 +1,18 @@
+.phone-input:focus-within {
+  border-color: #0d4f8b !important;
+  box-shadow: 0 0 0 3px rgba(13, 79, 139, 0.14);
+}
+
+.phone-input[data-invalid] {
+  border-color: #c42a1c !important;
+}
+
+.phone-input input::placeholder {
+  color: #8a8f99;
+}
+
+/* the responsive layer gives inputs inside forms width:100%; here the chip needs its own room */
+.phone-input > input {
+  width: auto !important;
+  padding: 0 !important;
+}
