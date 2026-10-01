@@ -37,6 +37,12 @@ Next.js 16 App Router, React 19. The backend is a separate repo, `../simbatech-a
   then `router.refresh()` so the page and the side menu's badges re-fetch. Filters live in the URL
   (`?status=`, `?q=`, `?show=`).
 - Customer reviews wait for approval in `/admin/reviews`; the product page tells the author theirs is waiting.
+- Charts (`src/components/admin/charts.jsx`): `ColumnChart` (stacked columns, tooltip, hidden table) and `BarList`
+  (ranked bars), plain HTML. Sold/rented are `#1A62A8`/`#418D4D` (checked for colour-blind separation); a
+  single series is brand blue. `/admin/reports` reads `/api/admin/reports?days=` or `?from=&to=`; the CSV
+  download is `/api/admin/reports/orders.csv` with the same range.
+- Staff land on `/admin` after signing in (unless `?next=` says otherwise); `StaffBar` shows them an
+  "Admin dashboard" button on every shop page.
 
 ## Rules for editing screens
 

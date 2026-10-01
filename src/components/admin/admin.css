@@ -1283,21 +1283,133 @@ textarea.adm-input {
   background: rgba(13, 79, 139, 0.05);
 }
 
-.adm-chart-bar {
-  display: block;
+/* one column: stacked segments with a 2px surface gap, the top one rounded */
+.adm-chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   width: 56%;
   max-width: 28px;
   border-radius: 4px 4px 0 0;
-  background: #0d4f8b;
+  overflow: hidden;
   transition: opacity 0.15s ease;
 }
 
-.adm-chart-col[data-today] .adm-chart-bar {
-  background: #1679be;
+.adm-chart-stack > span {
+  min-height: 2px;
 }
 
-.adm-chart-cols[data-hovering] .adm-chart-col:not([data-on]) .adm-chart-bar {
+.adm-chart-cols[data-hovering] .adm-chart-col:not([data-on]) .adm-chart-stack {
   opacity: 0.45;
+}
+
+.adm-chart-legend {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+  color: #3a3f4a;
+}
+
+.adm-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-chart-legend i,
+.adm-chart-tip-row i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.adm-chart-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #e6e9ee;
+}
+
+.adm-chart-tip-row b {
+  margin-left: auto;
+  padding-left: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ranked horizontal bars */
+.adm-bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adm-bars-row {
+  padding: 8px 10px;
+  margin: 0 -10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+a.adm-bars-row:hover {
+  background: #f6f5f1;
+}
+
+.adm-bars-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.adm-bars-top b {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-bars-track {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: #f3f2ee;
+}
+
+.adm-bars-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #1a62a8;
+}
+
+.adm-bars-row small {
+  font-size: 12px;
+  color: #5e6470;
+}
+
+.adm-change {
+  font-family: "Geist", system-ui, sans-serif;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.adm-change[data-tone="up"] {
+  color: #2f7a3c;
+}
+
+.adm-change[data-tone="down"] {
+  color: #b02418;
 }
 
 .adm-chart-tip {
@@ -1351,7 +1463,21 @@ textarea.adm-input {
   white-space: nowrap;
 }
 
+/* long series label every few columns (ColumnChart sets data-skip) */
+.adm-chart-x span[data-skip] {
+  visibility: hidden;
+}
+
+.adm-chart-x span {
+  overflow: visible;
+}
+
+/* the newest label hugs the right edge so it is never cut off */
 .adm-chart-x span:last-child {
+  text-align: right;
+}
+
+.adm-chart-x span[data-last] {
   font-weight: 700;
   color: #111318;
 }
@@ -1473,6 +1599,46 @@ textarea.adm-input {
   height: 100%;
   border-radius: 999px;
   background: #0d4f8b;
+}
+
+/* reports: custom period */
+.adm-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adm-range .adm-input {
+  width: auto;
+}
+
+.adm a.adm-link {
+  color: #0d4f8b;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* printing a report: just the page */
+@media print {
+  .adm-util,
+  .adm-head,
+  .adm-side,
+  .adm-toolbar,
+  .adm-actions {
+    display: none !important;
+  }
+
+  .adm-body {
+    display: block;
+    padding: 0;
+  }
+
+  .adm-card,
+  .adm-tile {
+    break-inside: avoid;
+  }
 }
 
 /* ── Loading skeleton (admin/loading.tsx) ────────────────── */
@@ -1667,7 +1833,7 @@ textarea.adm-input {
     margin-left: 36px;
   }
 
-  .adm-chart-x span[data-skip] {
+  .adm-chart-x span[data-skip-sm] {
     visibility: hidden;
   }
 

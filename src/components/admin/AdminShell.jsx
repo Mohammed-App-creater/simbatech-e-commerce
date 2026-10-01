@@ -16,6 +16,7 @@ const NAV = [
   { href: "/admin", label: "Overview", icon: ["M4 4h7v7H4z", "M13 4h7v4h-7z", "M13 10h7v10h-7z", "M4 13h7v7H4z"] },
   { href: "/admin/orders", label: "Orders", badge: "openOrders", icon: ["M21 8l-9-5-9 5 9 5 9-5z", "M3 8v8l9 5 9-5V8", "M12 13v8"] },
   { href: "/admin/reviews", label: "Reviews", badge: "pendingReviews", icon: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z" },
+  { href: "/admin/reports", label: "Reports", icon: ["M4 19h16", "M7 16v-5", "M12 16V6", "M17 16v-8"] },
   { href: "/admin/products", label: "Products", icon: ["M4 7h16v13H4z", "M8 7V5a4 4 0 0 1 8 0v2"] },
   { href: "/admin/messages", label: "Messages", badge: "openMessages", icon: ["M4 5h16v12H9l-5 4z"] },
   { href: "/admin/customers", label: "Customers", icon: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"] },
